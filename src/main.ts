@@ -97,8 +97,6 @@ const hud = new Hud({
     deleteSave(key);
     hud.setCityList(listSaves(), currentKey);
   },
-  onDisaster: (kind) => triggerDisaster(kind),
-  onRandomDisasters: (enabled) => { city.randomDisasters = enabled; unsaved = true; },
   onOrdinance: (key, enabled) => { city.ordinances[key] = enabled; unsaved = true; hud.update(city); },
   onMinimap: (x, y) => { renderer.centerOnTile(x, y); dirty = true; },
   onLang: (l: Lang) => { autosave(); setLang(l); location.reload(); },
@@ -141,6 +139,8 @@ function setDataMap(map: DataMap): void {
   dirty = true;
 }
 
+const TUTO_SEEN_KEY = 'citybuilder.tutoSeen';
+
 function foundCity(name: string, difficulty: Difficulty, seed: number): void {
   autosave();
   city = City.generate(seed, name, difficulty);
@@ -153,6 +153,13 @@ function foundCity(name: string, difficulty: Difficulty, seed: number): void {
   hud.setCityList(listSaves(), currentKey);
   setSpeed(1);
   hud.setStatus(t('status.founded', { name, road: unitCost('road'), zone: unitCost('res') }));
+  // the very first city on this browser opens the tutorial; afterwards it waits behind the ? button
+  try {
+    if (!localStorage.getItem(TUTO_SEEN_KEY)) {
+      localStorage.setItem(TUTO_SEEN_KEY, '1');
+      hud.openHelp();
+    }
+  } catch { /* storage unavailable: no tutorial nag */ }
 }
 
 function startCity(): void {
@@ -452,3 +459,4 @@ function boot(): void {
 }
 
 boot();
+

@@ -3,8 +3,8 @@ import { randomSeed } from '../game/rng';
 import { advice } from '../game/sim';
 import { STRUCTS, isStructTool, structDesc, structName } from '../game/structs';
 import {
-  BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, DISASTER_KINDS, MAX_BONDS, ORDINANCES, ORDINANCE_KEYS,
-  Overlay, Terrain, type DataMap, type Dept, type Difficulty, type DisasterKind, type Ordinance, type StructType, type Tool,
+  BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, MAX_BONDS, ORDINANCES, ORDINANCE_KEYS,
+  Overlay, Terrain, type DataMap, type Dept, type Difficulty, type Ordinance, type StructType, type Tool,
 } from '../game/types';
 import { fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
 import { renderIcon } from '../render/sprites';
@@ -23,8 +23,6 @@ export interface HudHandlers {
   onNewCity(name: string, difficulty: Difficulty, seed: number | null): void;
   onLoadCity(key: string): void;
   onDeleteCity(key: string): void;
-  onDisaster(kind: DisasterKind): void;
-  onRandomDisasters(enabled: boolean): void;
   onOrdinance(key: Ordinance, enabled: boolean): void;
   onLang(lang: Lang): void;
   /** the player tapped the minimap: look there */
@@ -181,7 +179,6 @@ export class Hud {
   private bondRepay!: HTMLButtonElement;
   private ordInputs = {} as Record<Ordinance, HTMLInputElement>;
   private ordCosts = {} as Record<Ordinance, HTMLElement>;
-  private randomDisasters!: HTMLInputElement;
   private lastLogKey = '';
 
   // welcome screen state
@@ -190,13 +187,14 @@ export class Hud {
   private welcomeSeeds: number[] = [];
 
   constructor(private handlers: HudHandlers) {
+    if (isMobile()) $('welcome-help').dataset.i18n = 'help.touch';
     translateStatic();
     this.buildToolbar();
     this.buildBudgetPanel();
     this.buildMapsMenu();
-    this.buildDisastersMenu();
     this.buildWelcome();
     this.bindMinimap();
+    this.buildTutorial();
     this.toolPill.addEventListener('click', () => this.handlers.onTool('query'));
     // the top bar figures open what explains them: funds -> budget, population -> journal, date -> speed
     document.querySelector('.stat.money')!.addEventListener('click', () => $('btn-budget').click());
@@ -228,7 +226,6 @@ export class Hud {
     $('btn-budget').addEventListener('click', () => this.togglePanel('panel-budget'));
     $('btn-maps').addEventListener('click', () => this.togglePanel('maps-menu'));
     $('btn-journal').addEventListener('click', () => this.togglePanel('panel-journal'));
-    $('btn-disasters').addEventListener('click', () => this.togglePanel('disasters-menu'));
     $('btn-cities').addEventListener('click', () => this.togglePanel('panel-cities'));
     // the button shows the language you would switch to, flag included
     const other = lang === 'fr' ? 'en' : 'fr';
@@ -273,17 +270,12 @@ export class Hud {
     // the saves menu (Villes) stays in the top bar: it is about files, not about playing
     const menus: [string, string, string][] = [
       ['btn-budget', '📒', 'btn.budget'], ['btn-maps', '🗺️', 'btn.maps'], ['btn-journal', '📰', 'btn.journal'],
-      ['btn-disasters', '🌪️', 'btn.disasters'],
     ];
     for (const [id, icon, key] of menus) {
       const btn = h('button', { class: 'menu-btn', id }, h('span', { class: 'emoji', text: icon }));
       this.tooltip(btn, () => [t(key), '']);
       bar.append(btn);
     }
-    const help = h('button', { class: 'menu-btn help' }, h('span', { class: 'emoji', text: '?' }));
-    this.tooltip(help, () => [t('help'), '']);
-    help.addEventListener('click', () => this.setStatus(t(isMobile() ? 'help.touch' : 'help')));
-    bar.append(help);
   }
 
   /** One shared tooltip, shown to the right of the hovered toolbar button. */
@@ -369,7 +361,7 @@ export class Hud {
 
   // ---- panels --------------------------------------------------------------
 
-  openPanel(id: 'panel-budget' | 'maps-menu' | 'panel-cities' | 'panel-journal' | 'disasters-menu'): void {
+  openPanel(id: 'panel-budget' | 'maps-menu' | 'panel-cities' | 'panel-journal'): void {
     this.closePanels();
     $(id).hidden = false;
   }
@@ -383,14 +375,14 @@ export class Hud {
       // drop-down menus open next to the button that owns them (bottom sheet on phones)
       if (isMobile()) { el.style.top = ''; return; }
       el.classList.remove('near-minimap');
-      const owner = id === 'maps-menu' ? $('btn-maps') : $('btn-disasters');
+      const owner = $('btn-maps');
       const top = owner.getBoundingClientRect().top;
       el.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 40 - el.offsetHeight))}px`;
     }
   }
 
   closePanels(): void {
-    for (const id of ['panel-budget', 'maps-menu', 'panel-cities', 'panel-journal', 'disasters-menu']) $(id).hidden = true;
+    for (const id of ['panel-budget', 'maps-menu', 'panel-cities', 'panel-journal']) $(id).hidden = true;
     $('speed').classList.remove('show');
     this.closeFlyout();
   }
@@ -461,18 +453,6 @@ export class Hud {
       btn.addEventListener('click', () => { this.handlers.onDataMap(key); this.closePanels(); });
       menu.append(btn);
     }
-  }
-
-  private buildDisastersMenu(): void {
-    const menu = $('disasters-menu');
-    for (const kind of DISASTER_KINDS) {
-      const btn = h('button', { class: 'item disaster', text: t(`disaster.${kind}`) });
-      btn.addEventListener('click', () => { this.handlers.onDisaster(kind); this.closePanels(); });
-      menu.append(btn);
-    }
-    this.randomDisasters = h('input', { type: 'checkbox' });
-    this.randomDisasters.addEventListener('change', () => this.handlers.onRandomDisasters(this.randomDisasters.checked));
-    menu.append(h('label', { class: 'toggle' }, this.randomDisasters, t('menu.randomDisasters')));
   }
 
   setDataMap(map: DataMap): void {
@@ -621,6 +601,60 @@ export class Hud {
 
   // ---- live values ---------------------------------------------------------
 
+  // ---- tutorial -----------------------------------------------------------
+
+  private helpIndex = 0;
+
+  /** Six short screens, stepped through with the arrows; the gesture screens depend on the device. */
+  private tutorialScreens(): { title: string; lines: string[]; pic: [string[], number] }[] {
+    const touch = isMobile();
+    const lines = (key: string) => t(key).split('\n');
+    return [
+      { title: t('tuto.1.title'), lines: lines('tuto.1.lines'), pic: [['bld:3:1:2'], 1] },
+      { title: t('tuto.2.title'), lines: lines(touch ? 'tuto.2.lines.touch' : 'tuto.2.lines.mouse'), pic: [['road:10:0000'], 1] },
+      { title: t('tuto.3.title'), lines: lines(touch ? 'tuto.3.lines.touch' : 'tuto.3.lines.mouse'), pic: [['zone:3'], 1] },
+      { title: t('tuto.4.title'), lines: lines('tuto.4.lines'), pic: [['st:wind'], 1] },
+      { title: t('tuto.5.title'), lines: lines('tuto.5.lines'), pic: [['st:cityhall'], STRUCTS.cityhall.size] },
+      { title: t('tuto.6.title'), lines: lines('tuto.6.lines'), pic: [['st:arcology'], STRUCTS.arcology.size] },
+    ];
+  }
+
+  private buildTutorial(): void {
+    $('btn-help').addEventListener('click', () => this.openHelp());
+    $('help-close').addEventListener('click', () => { $('help').hidden = true; });
+    $('help-prev').addEventListener('click', () => this.showHelp(this.helpIndex - 1));
+    $('help-next').addEventListener('click', () => {
+      if (this.helpIndex >= this.tutorialScreens().length - 1) $('help').hidden = true;
+      else this.showHelp(this.helpIndex + 1);
+    });
+    $('help').addEventListener('click', (e) => { if (e.target === $('help')) $('help').hidden = true; });
+    window.addEventListener('keydown', (e) => {
+      if ($('help').hidden) return;
+      if (e.key === 'Escape') { $('help').hidden = true; e.stopPropagation(); }
+      else if (e.key === 'ArrowRight') this.showHelp(this.helpIndex + 1);
+      else if (e.key === 'ArrowLeft') this.showHelp(this.helpIndex - 1);
+    }, true);
+  }
+
+  openHelp(): void {
+    this.closePanels();
+    $('help').hidden = false;
+    this.showHelp(0);
+  }
+
+  private showHelp(index: number): void {
+    const screens = this.tutorialScreens();
+    this.helpIndex = Math.max(0, Math.min(screens.length - 1, index));
+    const sc = screens[this.helpIndex];
+    $('help-title').textContent = sc.title;
+    $('help-pic').replaceChildren(renderIcon(sc.pic[0], sc.pic[1], 96, 1.4));
+    $('help-list').replaceChildren(...sc.lines.map((l) => h('li', { text: l })));
+    $('help-dots').replaceChildren(...screens.map((_, i) => h('i', { class: i === this.helpIndex ? 'on' : '' })));
+    $('help-step').textContent = `${this.helpIndex + 1} / ${screens.length}`;
+    $<HTMLButtonElement>('help-prev').disabled = this.helpIndex === 0;
+    $('help-next').textContent = this.helpIndex === screens.length - 1 ? t('tuto.done') : t('tuto.next');
+  }
+
   // ---- minimap ------------------------------------------------------------
 
   private minimap = $<HTMLCanvasElement>('minimap-canvas');
@@ -748,7 +782,6 @@ export class Hud {
       const c = ORDINANCES[k].costPerCapita * city.stats.pop;
       this.ordCosts[k].textContent = t('perMonthSign', { sign: c < 0 ? '+' : '−', amt: fmtMoney(Math.abs(c)) });
     }
-    this.randomDisasters.checked = city.randomDisasters;
     this.updateJournal(city);
     const s = city.stats;
     set('lv', `${Math.round(s.avgLandValue)} / 255`);

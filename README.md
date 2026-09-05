@@ -111,7 +111,7 @@ commandes de vitesse.
 - **Budget** : impôts par type de zone, dépenses par poste, financement de
   chaque service, emprunts. La difficulté module la demande, les coûts, la
   fréquence des catastrophes et le taux des emprunts.
-- **Catastrophes** : déclenchables depuis le menu ou aléatoires. Ce qui brûle
+- **Catastrophes** : aléatoires, plus fréquentes en difficile. Ce qui brûle
   ou s'écroule laisse des décombres à déblayer ; une zone privée de courant
   ou d'accès se vide lentement, le temps de réparer.
 

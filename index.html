@@ -33,11 +33,12 @@
     <div class="stat power" data-i18n-title="top.power.title"><span class="ico">⚡</span><span class="txt"><span id="power" class="val small">0 / 0 MW</span></span></div>
     <div class="stat water" data-i18n-title="top.water.title"><span class="ico">💧</span><span class="txt"><span id="water" class="val small">0 %</span></span></div>
     <div class="group menus">
-      <button id="btn-cities" data-i18n-title="btn.cities">🏙️ <span data-i18n="btn.cities">Villes</span></button>
+      <button id="btn-cities" data-i18n-title="btn.cities.title">📂 <span data-i18n="btn.cities">Mes villes</span></button>
       <button id="btn-lang" class="lang" title="Switch language / Changer de langue"><span class="flag en"></span><span class="code">EN</span></button>
+      <button id="btn-help" class="help" data-i18n-title="btn.help" title="Aide">?</button>
     </div>
     <div id="speed" class="group">
-      <button data-speed="0" data-i18n-title="speed.pause">&#x275A;&#x275A;</button>
+      <button data-speed="0" data-i18n-title="speed.pause" class="pause"><i></i><i></i></button>
       <button data-speed="1" data-i18n-title="speed.1">&#x25B6;&#xFE0E;</button>
       <button data-speed="2" data-i18n-title="speed.2">&#x25B6;&#xFE0E;&#x25B6;&#xFE0E;</button>
       <button data-speed="3" data-i18n-title="speed.3">&#x25B6;&#xFE0E;&#x25B6;&#xFE0E;&#x25B6;&#xFE0E;</button>
@@ -59,7 +60,6 @@
   </aside>
 
   <div id="maps-menu" class="menu" hidden></div>
-  <div id="disasters-menu" class="menu" hidden></div>
 
   <aside id="panel-journal" class="panel" hidden>
     <div class="head"><span data-i18n="journal.title">Journal de la ville</span><button class="ghost close">✕</button></div>
@@ -83,11 +83,19 @@
     </div>
   </aside>
 
+  <div id="help" class="modal" hidden>
+    <div class="tutorial" role="dialog" aria-modal="true">
+      <div class="head"><h2 id="help-title"></h2><button id="help-close" type="button" aria-label="Fermer">✕</button></div>
+      <div class="body"><div id="help-pic" class="pic"></div><ul id="help-list"></ul></div>
+      <div class="foot"><span class="dots"><span id="help-dots"></span><span id="help-step" class="step"></span></span><span class="nav"><button id="help-prev" type="button" data-i18n="tuto.prev">Précédent</button><button id="help-next" type="button" class="primary" data-i18n="tuto.next">Suivant</button></span></div>
+    </div>
+  </div>
   <div id="welcome" class="modal" hidden>
     <form id="welcome-form" class="welcome">
       <div class="hero">
         <div class="logo">Build<span>Your</span>Town</div>
         <p class="tagline" data-i18n="welcome.tagline">Fondez une ville, faites-la grandir.</p>
+        <p id="welcome-help" class="hint" data-i18n="help"></p>
         <div id="welcome-lang" class="langs"><span class="lbl" data-i18n="welcome.lang">Langue</span>
           <button type="button" data-lang="fr"><span class="flag fr"></span>Français</button><button type="button" data-lang="en"><span class="flag en"></span>English</button>
         </div>

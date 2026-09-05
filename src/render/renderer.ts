@@ -150,6 +150,7 @@ export class Renderer {
           let key = `st:${s.type}`;
           if (s.type === 'wind' && animate) key = `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}`;
           else if (s.type === 'station' && this.stationAlongY(city, s.x, s.y, n)) key = 'st:station:1';
+          else if (s.type === 'park') key = `park:${this.parkMask(city, s.x, s.y)}:${hash2(s.x, s.y, 11) & 3}`;
           ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
           if (showMarkers && x === s.x && y === s.y && STRUCTS[s.type].consumes && !powered[i]) {
             this.marker(px, py + hh, scale, 'bolt');
@@ -229,6 +230,12 @@ export class Renderer {
       this.diamondPath(ox + (hover.x - hover.y) * hw, oy + (hover.x + hover.y) * hh - Math.round(city.base(hover.x, hover.y) * hs), hw, hh);
       ctx.stroke();
     }
+  }
+
+  /** Which of the four neighbours are small parks too (N=1 E=2 S=4 W=8): their paths join up. */
+  private parkMask(city: City, x: number, y: number): number {
+    const park = (xx: number, yy: number) => city.inBounds(xx, yy) && city.overlay[city.idx(xx, yy)] === Overlay.Struct && city.structAt(city.idx(xx, yy))?.type === 'park';
+    return (park(x, y - 1) ? 1 : 0) | (park(x + 1, y) ? 2 : 0) | (park(x, y + 1) ? 4 : 0) | (park(x - 1, y) ? 8 : 0);
   }
 
   /** Does the track next to a station run along y (more rail tiles beside its x sides than its y sides)? */

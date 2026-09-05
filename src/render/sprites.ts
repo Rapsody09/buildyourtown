@@ -1359,6 +1359,71 @@ const STRUCT_LOT: Record<string, string> = {
 };
 
 /** `frame` only matters for animated structures (the wind turbine rotor, 6 frames over a third of a turn). */
+/**
+ * One tile of park. Neighbouring park tiles (`mask`: N=1 E=2 S=4 W=8) are
+ * joined by paths and the hedge only runs along the open sides, so a cluster
+ * of small parks reads as a single garden with a pond, a playground, benches.
+ */
+function parkTile(s: Scene, mask: number, variant: number): void {
+  const path = '#d9d2bd', hedge = '#2e7d3a', hedgeTop = '#43a047';
+  s.custom(-2, (c) => {
+    poly(c, diamond(0.02), 'rgba(180,235,130,0.35)');
+    if (mask & 1) poly(c, [P(0.42, 0), P(0.58, 0), P(0.58, 0.5), P(0.42, 0.5)], path);
+    if (mask & 4) poly(c, [P(0.42, 0.5), P(0.58, 0.5), P(0.58, 1), P(0.42, 1)], path);
+    if (mask & 8) poly(c, [P(0, 0.42), P(0.5, 0.42), P(0.5, 0.58), P(0, 0.58)], path);
+    if (mask & 2) poly(c, [P(0.5, 0.42), P(1, 0.42), P(1, 0.58), P(0.5, 0.58)], path);
+    const [x, y] = P(0.5, 0.5);
+    c.fillStyle = path;
+    c.beginPath();
+    c.ellipse(x, y, mask ? 7 : 9, mask ? 3.5 : 4.5, 0, 0, Math.PI * 2);
+    c.fill();
+  });
+  const sides: [number, [number, number, number, number]][] = [
+    [1, [0.06, 0.03, 0.94, 0.1]], [2, [0.9, 0.06, 0.97, 0.94]], [4, [0.06, 0.9, 0.94, 0.97]], [8, [0.03, 0.06, 0.1, 0.94]],
+  ];
+  for (const [bit, [u0, v0, u1, v1]] of sides) if (!(mask & bit)) s.box(u0, v0, u1, v1, 3, hedge, hedgeTop);
+  switch (variant & 3) {
+    case 0:
+      s.tree(0.25, 0.27, 5);
+      s.tree(0.75, 0.73, 5);
+      s.custom(0.9, (c) => {
+        const [x, y] = P(0.74, 0.27);
+        c.fillStyle = '#7a5230';
+        c.fillRect(x - 4, y - 3, 8, 2);
+      });
+      break;
+    case 1:
+      // pond with a light rim
+      s.disc(0.26, 0.74, 0.17, '#cfe3d0', 0, -1);
+      s.disc(0.26, 0.74, 0.14, '#3b78b5', 0, -1);
+      s.tree(0.74, 0.26, 5);
+      break;
+    case 2:
+      // playground: a slide and a swing
+      s.box(0.17, 0.17, 0.29, 0.29, 7, '#f2c14e', '#e0a93a');
+      s.custom(0.3, (c) => poly(c, [P(0.29, 0.19, 7), P(0.29, 0.27, 7), P(0.4, 0.27, 0), P(0.4, 0.19, 0)], '#e04848'));
+      s.box(0.7, 0.72, 0.72, 0.74, 9, '#4f6d8f', '#4f6d8f');
+      s.box(0.84, 0.72, 0.86, 0.74, 9, '#4f6d8f', '#4f6d8f');
+      s.box(0.7, 0.725, 0.86, 0.735, 1, '#7a5230', '#7a5230', { z0: 9 });
+      s.tree(0.74, 0.26, 4);
+      break;
+    default:
+      // flower bed
+      s.disc(0.73, 0.73, 0.15, '#b23a5a', 0, -1);
+      s.custom(0.2, (c) => {
+        for (const [du, dv, col] of [[-0.06, -0.04, '#ffd23f'], [0.05, -0.05, '#ff8fb1'], [0.0, 0.06, '#ffffff'], [-0.05, 0.05, '#ffd23f']] as [number, number, string][]) {
+          const [x, y] = P(0.73 + du, 0.73 + dv);
+          c.fillStyle = col;
+          c.beginPath();
+          c.arc(x, y, 1.2, 0, Math.PI * 2);
+          c.fill();
+        }
+      });
+      s.tree(0.27, 0.27, 5);
+      break;
+  }
+}
+
 function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
   // the station turns to run along the track it serves
   if (type === 'station' && frame === 1) SWAP = true;
@@ -1612,14 +1677,7 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
       s.antenna(2.0, 2.0, 108, 5);
       break;
     case 'park':
-      s.custom(-2, (c) => poly(c, [P(0.42, 0), P(0.58, 0), P(0.58, 1), P(0.42, 1)], '#d9d2bd'));
-      s.tree(0.25, 0.3, 5);
-      s.tree(0.75, 0.7, 5);
-      s.custom(0.9, (c) => {
-        const [x, y] = P(0.75, 0.3);
-        c.fillStyle = '#7a5230';
-        c.fillRect(x - 4, y - 3, 8, 2);
-      });
+      parkTile(s, 0, 0);
       break;
     case 'bigpark':
       s.custom(-2, (c) => {
@@ -1794,6 +1852,13 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'bld': return drawBuilding(ctx, num(1) as ZoneType, num(2), num(3));
     case 'big': return drawBigBuilding(ctx, num(1) as ZoneType, num(2), num(3), num(4));
     case 'st': return drawStruct(ctx, parts[1] as StructType, parts[2] ? num(2) : 0);
+    case 'park': {
+      drawGrass(ctx, 1);
+      const s = new Scene(ctx, num(2));
+      parkTile(s, num(1), num(2));
+      s.render();
+      return;
+    }
   }
 }
 

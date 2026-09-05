@@ -3,6 +3,17 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.4 — 2026-09-05
+
+- Les petits parcs voisins forment un seul jardin : chemins qui se rejoignent,
+  haie sur le pourtour, étang, aire de jeux, bancs et parterres.
+- Mini-tutoriel en six écrans derrière le bouton « ? » en haut à droite ; il
+  s'ouvre de lui-même après la première ville créée.
+- Le menu Catastrophes et le bouton d'aide de la barre d'outils disparaissent.
+  Les catastrophes surviennent selon la difficulté, sans réglage.
+- Le bouton des sauvegardes s'appelle « Mes villes ».
+- Boutons de vitesse de même taille.
+
 ## 0.3.3 — 2026-09-05
 
 - Les chiffres du bandeau ouvrent ce qui les explique : les fonds le budget,

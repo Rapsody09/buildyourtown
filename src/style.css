@@ -114,7 +114,10 @@ button.lang { font-family: var(--font-head); font-weight: 800; padding: 6px 9px;
 .group.menus { margin-left: auto; gap: 4px; }
 .group.menus button, #speed button { height: 42px; padding: 0 9px; flex: none; }
 button.lang { height: 42px; }
-#speed button { border-radius: 0; }
+#speed button { border-radius: 0; width: 46px; padding: 0; font-size: 13px; letter-spacing: -1px; }
+/* pause drawn as two bars, so it matches the play glyphs in weight and height */
+#speed button.pause { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+#speed button.pause i { display: block; width: 4px; height: 13px; border-radius: 1px; background: currentColor; }
 #speed button:first-child { border-radius: 10px 0 0 10px; }
 #speed button:last-child { border-radius: 0 10px 10px 0; }
 input[type="range"] { width: 90px; margin: 0; accent-color: var(--accent); }
@@ -158,7 +161,6 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 }
 #toolbar button.menu-btn { height: 60px; font-size: 30px; }
 #toolbar button.menu-btn .emoji { line-height: 1; }
-#toolbar button.menu-btn.help { font-family: var(--font-head); font-weight: 800; color: var(--muted); }
 #toolbar button.tool .ico, #flyout .ico {
   width: 70px; height: 70px;
   border-radius: 8px;
@@ -285,9 +287,28 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 
 .menu { width: 236px; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
 .menu button.item { text-align: left; }
-.menu button.item.disaster { color: #ffb3a7; }
 .menu label.toggle { display: flex; gap: 8px; align-items: center; padding: 8px 6px 4px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 4px; }
 .menu label.toggle input { accent-color: var(--accent); }
+
+/* ---- tutorial ---- */
+#btn-help { font-family: var(--font-head); font-weight: 800; font-size: 18px; width: 42px; padding: 0; color: var(--accent); }
+.tutorial {
+  width: min(560px, 92vw); max-height: 86vh;
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
+}
+.tutorial .head { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+.tutorial .head h2 { margin: 0; font-family: var(--font-head); font-size: 20px; font-weight: 800; }
+.tutorial .head button { padding: 0 8px; }
+.tutorial .body { display: flex; gap: 16px; align-items: flex-start; padding: 16px 18px; overflow-y: auto; }
+.tutorial .pic { flex: none; width: 96px; height: 96px; border-radius: 12px; background: radial-gradient(circle at 50% 35%, #2f3b5a 0%, #1a2236 100%); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.tutorial ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.tutorial li + li { margin-top: 6px; }
+.tutorial .foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid var(--border); }
+.tutorial .dots { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.tutorial .dots i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); margin-right: 4px; }
+.tutorial .dots i.on { background: var(--accent); }
+.tutorial .nav { display: flex; gap: 8px; }
 
 /* ---- welcome ---- */
 .modal {
@@ -315,6 +336,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 }
 .logo { font-size: 34px; line-height: 1.05; }
 .tagline { margin: 0; color: var(--muted); font-size: 14px; }
+.welcome .hint { margin: 12px 0 0; font-size: 12px; line-height: 1.45; color: var(--muted); opacity: 0.85; }
 .langs { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .langs .lbl { width: 100%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
 .langs button.selected { background: linear-gradient(180deg, #5fd7de 0%, var(--teal) 100%); color: #05282b; border-color: #1f8a91; }
@@ -404,7 +426,8 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   .stat .val { font-size: 13px; }
   .stat .val.small { font-size: 12px; }
   .stat .sub, .stat.rci, #btn-cities span[data-i18n], #speed button:nth-child(3) { display: none; }
-  .group.menus button, #speed button, button.lang { height: 36px; padding: 0 7px; }
+  .group.menus button, button.lang { height: 36px; padding: 0 7px; }
+  #speed button { height: 36px; width: 42px; }
   button.lang .code { display: none; }
 
   /* toolbar: one horizontal strip above the status bar */
@@ -470,6 +493,8 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   .modal { align-items: flex-start; overflow-y: auto; padding: 10px 0; }
   .welcome { grid-template-columns: 1fr; width: 96vw; max-height: none; }
   .welcome .hero { padding: 18px 16px 14px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .tutorial .body { flex-direction: column; align-items: center; }
+  .tutorial ul { font-size: 13px; }
   .logo { font-size: 26px; }
   .langs { margin-top: 8px; }
   .welcome .fields { padding: 14px 16px 18px; gap: 12px; overflow: visible; }
@@ -484,7 +509,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 @media (max-width: 600px) {
   .stat.power, .stat.water { display: none; }
   .stat { padding: 0 6px 0 5px; gap: 4px; }
-  .group.menus button, #speed button, button.lang { padding: 0 6px; }
+  .group.menus button, button.lang { padding: 0 6px; }
 }
 @media (max-width: 480px) {
   .stat.date { display: none; }
