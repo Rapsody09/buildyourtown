@@ -353,6 +353,11 @@ export class Hud {
     return entry && 'group' in entry ? entry.icon() : items[0].icon();
   }
 
+  /** the saves button carries the name of the city being played */
+  setCityName(name: string): void {
+    $('city-name').textContent = name;
+  }
+
   setSpeed(speed: number): void {
     for (const b of this.speedButtons) b.classList.toggle('active', Number(b.dataset.speed) === speed);
     $('date').classList.toggle('paused', speed === 0);

@@ -164,6 +164,7 @@ function foundCity(name: string, difficulty: Difficulty, seed: number): void {
 
 function startCity(): void {
   renderer.city = city;
+  hud.setCityName(city.name);
   recomputeRoadDist(city);
   refreshGrid(city);
   computeStats(city);

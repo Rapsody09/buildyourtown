@@ -3,6 +3,10 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.5 — 2026-09-05
+
+- Le bouton des sauvegardes affiche le nom de la ville en cours.
+
 ## 0.3.4 — 2026-09-05
 
 - Les petits parcs voisins forment un seul jardin : chemins qui se rejoignent,

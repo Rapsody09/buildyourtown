@@ -114,6 +114,9 @@ button.lang { font-family: var(--font-head); font-weight: 800; padding: 6px 9px;
 .group.menus { margin-left: auto; gap: 4px; }
 .group.menus button, #speed button { height: 42px; padding: 0 9px; flex: none; }
 button.lang { height: 42px; }
+#btn-cities { display: inline-flex; align-items: center; max-width: 200px; gap: 6px; font-family: var(--font-head); font-weight: 800; }
+#btn-cities .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#btn-cities .caret { color: var(--muted); font-size: 12px; }
 #speed button { border-radius: 0; width: 46px; padding: 0; font-size: 13px; letter-spacing: -1px; }
 /* pause drawn as two bars, so it matches the play glyphs in weight and height */
 #speed button.pause { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
@@ -397,7 +400,6 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 /* The bar is one line, never wraps: below 1700px the menu buttons keep only
    their icon (label as tooltip), below 1400px the secondary details go too. */
 @media (max-width: 1400px) {
-  #btn-cities span[data-i18n] { display: none; }
   .stat .sub { display: none; }
   #speed button:nth-child(3) { display: none; }
   .brand { font-size: 18px; }
@@ -425,7 +427,8 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   .stat .ico { font-size: 15px; }
   .stat .val { font-size: 13px; }
   .stat .val.small { font-size: 12px; }
-  .stat .sub, .stat.rci, #btn-cities span[data-i18n], #speed button:nth-child(3) { display: none; }
+  .stat .sub, .stat.rci, #speed button:nth-child(3) { display: none; }
+  #btn-cities { max-width: 120px; }
   .group.menus button, button.lang { height: 36px; padding: 0 7px; }
   #speed button { height: 36px; width: 42px; }
   button.lang .code { display: none; }
