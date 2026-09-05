@@ -205,6 +205,14 @@ export class Hud {
       $('minimap-name').after(h('span', { class: 'bars mini', id: 'rci-map', 'data-i18n-title': 'top.demand.title' }, r, c, i));
       this.rciCopies.push({ r: r.firstElementChild as HTMLElement, c: c.firstElementChild as HTMLElement, i: i.firstElementChild as HTMLElement });
     }
+    // a tap on the map closes what floats over it: the light menus everywhere, every sheet on phones
+    $('map').addEventListener('pointerdown', () => {
+      if (isMobile()) { this.closePanels(); return; }
+      $('maps-menu').hidden = true;
+      $('demand-pop').hidden = true;
+      $('speed').classList.remove('show');
+      this.closeFlyout();
+    }, { passive: true });
     // tapping the bars, in the minimap or in the top bar, opens the demand details
     $('rci-map').addEventListener('click', (e) => { e.stopPropagation(); this.toggleDemand(true); });
     document.querySelector('.stat.rci')!.addEventListener('click', () => this.toggleDemand(false));
@@ -698,8 +706,10 @@ export class Hud {
     const rows: ['r' | 'c' | 'i', string, number][] = [['r', t('tool.res'), d.r], ['c', t('tool.com'), d.c], ['i', t('tool.ind'), d.i]];
     const best = rows.reduce((b, x) => (x[2] > b[2] ? x : b));
     const advice = best[2] > 0.08 ? t(`demand.advice.${best[0] === 'r' ? 'res' : best[0] === 'c' ? 'com' : 'ind'}`) : t('demand.advice.none');
+    const close = h('button', { type: 'button', text: '✕', 'aria-label': 'Fermer' });
+    close.addEventListener('click', () => this.closePanels());
     pop.replaceChildren(
-      h('div', { class: 'head', text: t('demand.title') }),
+      h('div', { class: 'head' }, h('span', { text: t('demand.title') }), close),
       ...rows.map(([z, label, v]) => {
         const pct = Math.round(Math.sqrt(Math.abs(v)) * 50);
         const fill = h('i', { class: `fill ${z}` });

@@ -3,6 +3,12 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.4.3 — 2026-09-05
+
+- Le volet Demande a une croix pour se fermer.
+- Un appui sur la carte referme les menus ouverts ; sur téléphone, aussi les
+  volets qui couvrent le jeu.
+
 ## 0.4.2 — 2026-09-05
 
 - Les barres de demande R, C, I sont dans l'en-tête de la mini-carte, donc

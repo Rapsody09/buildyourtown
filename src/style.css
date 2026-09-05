@@ -305,7 +305,8 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 #rci-map, .stat.rci { cursor: pointer; }
 /* demand details */
 #demand-pop { width: 300px; }
-#demand-pop .head { font-family: var(--font-head); font-size: 16px; font-weight: 800; padding: 4px 8px 6px; }
+#demand-pop .head { display: flex; justify-content: space-between; align-items: center; font-family: var(--font-head); font-size: 16px; font-weight: 800; padding: 4px 4px 6px 8px; }
+#demand-pop .head button { padding: 0 8px; height: 28px; }
 #demand-pop .drow { display: flex; align-items: center; gap: 10px; padding: 5px 8px; }
 #demand-pop .drow .lbl { width: 92px; font-weight: 700; }
 #demand-pop .drow .track { flex: 1; position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: hidden; }
