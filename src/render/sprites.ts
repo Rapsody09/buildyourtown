@@ -1542,6 +1542,84 @@ export class SpriteCache {
   }
 }
 
+// ---- cars ------------------------------------------------------------------
+
+export const CAR_COLORS = ['#f2f2f2', '#d94141', '#3a6fd8', '#f2c14e', '#3a3d44', '#8ccf6a', '#e07b39', '#b26ad4'];
+
+/**
+ * Small car centred on the tile, long side along `axis` ('x' = u, 'y' = v),
+ * built from a roof line (rear to front) extruded across its width. `back`
+ * mirrors it so the short face turned toward the viewer is the rear, with
+ * tail lights. `shape` 0 = saloon, 1 = van.
+ */
+function drawCar(ctx: Ctx, axis: 'x' | 'y', colorIdx: number, back: number, shape: number): void {
+  const col = CAR_COLORS[Math.abs(colorIdx) % CAR_COLORS.length];
+  const glass = '#bfe3f7';
+  const van = shape === 1;
+  const L = van ? 0.32 : 0.3, W = van ? 0.15 : 0.13, Z0 = 1.3;
+  const hw = W / 2;
+  // car space: l along the road (front at +l), w across, z up
+  const pt = (l: number, w: number, z = 0): Pt2 => {
+    const ll = back ? -l : l;
+    return axis === 'x' ? P(0.5 + ll, 0.5 + w, z) : P(0.5 + w, 0.5 + ll, z);
+  };
+  const profile: Pt2[] = van
+    ? [[-L / 2, 6], [0.04, 6], [0.09, 4.3], [L / 2, 4]]
+    : [[-L / 2, 3.9], [-0.11, 4], [-0.065, 6.1], [0.035, 6.1], [0.085, 4], [L / 2, 3.7]];
+  const win: Pt2[] = van
+    ? [[-0.14, 4.3], [-0.14, 5.7], [0.03, 5.7], [0.075, 4.3]]
+    : [[-0.1, 4.15], [-0.06, 5.85], [0.03, 5.85], [0.075, 4.15]];
+  const edge = 'rgba(0,0,0,0.35)';
+
+  // soft shadow on the road
+  const c = pt(0, 0, 0);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(c[0], c[1], L * 19, W * 19 + 1, Math.atan2(TILE_H, axis === 'x' ? TILE_W : -TILE_W), 0, Math.PI * 2);
+  ctx.fill();
+
+  // long side toward the viewer, following the roof line, then its windows and a door pillar
+  poly(ctx, [pt(-L / 2, hw, Z0), pt(L / 2, hw, Z0), ...profile.slice().reverse().map(([l, z]) => pt(l, hw, z))], shade(col, 0.88), edge, 0.5);
+  poly(ctx, win.map(([l, z]) => pt(l, hw, z)), shade(glass, 0.85));
+  const pillar = van ? -0.04 : -0.015;
+  const a = pt(pillar, hw, win[0][1]), b = pt(pillar, hw, win[1][1]);
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.lineTo(b[0], b[1]);
+  ctx.stroke();
+
+  // short face toward the viewer: the front, or the rear when driving away
+  const lf = back ? -L / 2 : L / 2;
+  const zf = back ? profile[0][1] : profile[profile.length - 1][1];
+  poly(ctx, [pt(lf, -hw, Z0), pt(lf, hw, Z0), pt(lf, hw, zf), pt(lf, -hw, zf)], shade(col, 0.7), edge, 0.5);
+  const light = back ? '#ff5a4a' : '#fff6cc';
+  for (const w of [-hw + 0.012, hw - 0.04]) {
+    poly(ctx, [pt(lf, w, 2.2), pt(lf, w + 0.028, 2.2), pt(lf, w + 0.028, 3.1), pt(lf, w, 3.1)], light);
+  }
+
+  // roof line: flat parts in the body colour, slopes in glass
+  for (let k = 0; k + 1 < profile.length; k++) {
+    const [l0, z0] = profile[k], [l1, z1] = profile[k + 1];
+    const sloped = Math.abs(z1 - z0) > 1;
+    poly(ctx, [pt(l0, -hw, z0), pt(l1, -hw, z1), pt(l1, hw, z1), pt(l0, hw, z0)], sloped ? glass : shade(col, 1.08), edge, 0.5);
+  }
+
+  // wheels on the visible side
+  for (const l of [-L / 2 + 0.065, L / 2 - 0.065]) {
+    const [wx, wy] = pt(l, hw, Z0 - 0.2);
+    ctx.fillStyle = '#1d1f23';
+    ctx.beginPath();
+    ctx.ellipse(wx, wy, 1.7, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#9aa0a6';
+    ctx.beginPath();
+    ctx.ellipse(wx, wy, 0.7, 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawByKey(ctx: Ctx, key: string): void {
   const parts = key.split(':');
   const num = (i: number) => parseInt(parts[i], 10);
@@ -1558,6 +1636,7 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'zone': return drawEmptyZone(ctx, num(1) as ZoneType);
     case 'rubble': SLOPE = parseSlope(parts[1]); return drawRubble(ctx, num(2));
     case 'icon': return drawBulldozer(ctx);
+    case 'car': return drawCar(ctx, parts[1] as 'x' | 'y', num(2), num(3), num(4));
     case 'fire': return drawFlames(ctx, num(1));
     case 'bld': return drawBuilding(ctx, num(1) as ZoneType, num(2), num(3));
     case 'big': return drawBigBuilding(ctx, num(1) as ZoneType, num(2), num(3), num(4));

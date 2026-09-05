@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>BuildYourTown</title>
   <meta name="description" content="BuildYourTown : fondez une ville et faites-la grandir, dans votre navigateur. Build your town and make it grow, right in your browser.">
   <meta name="theme-color" content="#141a28">
@@ -19,9 +19,9 @@
 
   <header id="topbar">
     <div class="brand">Build<span>Your</span>Town</div>
-    <div class="stat" data-i18n-title="top.funds"><span class="ico">💰</span><span class="txt"><span id="money" class="val">0 $</span><span id="budget-net" class="sub"></span></span></div>
-    <div class="stat" data-i18n-title="top.date"><span class="ico">📅</span><span class="txt"><span id="date" class="val">Jan 1900</span></span></div>
-    <div class="stat" data-i18n-title="top.pop"><span class="ico">👥</span><span class="txt"><span id="pop" class="val">0</span></span></div>
+    <div class="stat money" data-i18n-title="top.funds"><span class="ico">💰</span><span class="txt"><span id="money" class="val">0 $</span><span id="budget-net" class="sub"></span></span></div>
+    <div class="stat date" data-i18n-title="top.date"><span class="ico">📅</span><span class="txt"><span id="date" class="val">Jan 1900</span></span></div>
+    <div class="stat pop" data-i18n-title="top.pop"><span class="ico">👥</span><span class="txt"><span id="pop" class="val">0</span></span></div>
     <div class="stat rci" data-i18n-title="top.demand.title">
       <span class="ico">📈</span>
       <div class="bars">
@@ -30,8 +30,8 @@
         <div class="bar i"><div class="fill" id="rci-i"></div><span>I</span></div>
       </div>
     </div>
-    <div class="stat" data-i18n-title="top.power.title"><span class="ico">⚡</span><span class="txt"><span id="power" class="val small">0 / 0 MW</span></span></div>
-    <div class="stat" data-i18n-title="top.water.title"><span class="ico">💧</span><span class="txt"><span id="water" class="val small">0 %</span></span></div>
+    <div class="stat power" data-i18n-title="top.power.title"><span class="ico">⚡</span><span class="txt"><span id="power" class="val small">0 / 0 MW</span></span></div>
+    <div class="stat water" data-i18n-title="top.water.title"><span class="ico">💧</span><span class="txt"><span id="water" class="val small">0 %</span></span></div>
     <div class="group menus">
       <button id="btn-cities" data-i18n-title="btn.cities">🏙️ <span data-i18n="btn.cities">Villes</span></button>
       <button id="btn-lang" class="lang" title="Switch language / Changer de langue"><span class="flag en"></span><span class="code">EN</span></button>
@@ -116,7 +116,7 @@
   </div>
 
   <footer id="statusbar">
-    <span class="left"><span id="version" class="version"></span><span id="status"></span></span>
+    <span class="left"><span id="version" class="version"></span><span id="date-mobile" class="version"></span><span id="status"></span></span>
     <span class="right"><span id="legend"></span><span id="preview" hidden></span><span class="credits"><span data-i18n="credits">Réalisé par Erwann avec Claude Fable 5.1</span> · <a class="link-linkedin" href="https://www.linkedin.com/in/erwann-maignan/" target="_blank" rel="noopener">LinkedIn</a> · <a class="link-github" href="https://github.com/Rapsody09/buildyourtown" target="_blank" rel="noopener">GitHub</a></span></span>
   </footer>
 

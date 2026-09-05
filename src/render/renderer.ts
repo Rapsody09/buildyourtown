@@ -3,7 +3,7 @@ import { hash2 } from '../game/rng';
 import { STRUCTS } from '../game/structs';
 import { HIGHWAY_CAPACITY, MAX_ELEV, NO_ROAD, Overlay, ROAD_CAPACITY, Terrain, isZone, type DataMap } from '../game/types';
 import type { Pt } from '../game/tools';
-import { HSTEP, MAX_H, SpriteCache, TILE_H, TILE_W, groundHeight } from './sprites';
+import { CAR_COLORS, HSTEP, MAX_H, SpriteCache, TILE_H, TILE_W, groundHeight } from './sprites';
 
 export interface Camera {
   /** world px at the centre of the screen */
@@ -18,7 +18,6 @@ export interface Preview {
 }
 
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 1.5, 2];
-const CAR_COLORS = ['#e8e8e8', '#d94141', '#3a6fd8', '#f2c14e', '#2f2f2f', '#8ccf6a'];
 
 export class Renderer {
   readonly ctx: CanvasRenderingContext2D;
@@ -37,7 +36,8 @@ export class Renderer {
   }
 
   resize(): void {
-    this.dpr = window.devicePixelRatio || 1;
+    // phones report 3x pixel ratios: capping at 2 keeps the canvas affordable
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
     this.width = this.canvas.clientWidth;
     this.height = this.canvas.clientHeight;
     this.canvas.width = Math.round(this.width * this.dpr);
@@ -229,23 +229,29 @@ export class Renderer {
     const alongY = city.isRoadway(x, y + 1) || city.isRoadway(x, y - 1);
     if (alongX === alongY) return;
     const highway = city.overlay[i] === Overlay.Highway;
-    const cars = Math.min(highway ? 6 : 4, Math.floor(city.traffic[i] / (highway ? 500 : 250)));
+    const cars = Math.min(highway ? 8 : 4, Math.floor(city.traffic[i] / (highway ? 250 : 150)));
     if (cars === 0) return;
     const { ctx } = this;
-    const w = Math.max(2, 4 * scale), h = Math.max(1.5, 2.5 * scale);
+    const hw = TILE_W / 2 * scale, hh = TILE_H / 2 * scale;
+    const ax = Math.round(hw), ay = Math.round(MAX_H * scale);
+    // py already sits at the tile's base height: measure the ground from there
+    const base = Math.min(c[0], c[1], c[2], c[3]);
+    const rel: Corners = [c[0] - base, c[1] - base, c[2] - base, c[3] - base];
+    // lane centres on the asphalt; lanes below the middle line drive one way, the others back
+    const lanes = highway ? [0.26, 0.42, 0.58, 0.74] : [0.4, 0.6];
     for (let k = 0; k < cars; k++) {
       const seed = hash2(x, y, 200 + k);
-      const lane = highway ? (k & 1 ? 0.66 : 0.34) : (k & 1 ? 0.6 : 0.4);
-      const dir = k & 1 ? -1 : 1;
+      const lane = lanes[k % lanes.length];
+      const dir = lane < 0.5 ? 1 : -1;
       const speed = 0.25 + ((seed & 0xff) / 255) * 0.2;
       const t = ((time / 1000) * speed * dir + (seed >> 8) / 65536 * 4) % 1;
       const pos = t < 0 ? t + 1 : t;
       const u = alongX ? pos : lane;
       const v = alongX ? lane : pos;
-      const gx = px + (u - v) * TILE_W / 2 * scale;
-      const gy = py + (u + v) * TILE_H / 2 * scale - groundHeight(u, v, c) * scale;
-      ctx.fillStyle = CAR_COLORS[(seed >> 16) % CAR_COLORS.length];
-      ctx.fillRect(gx - w / 2, gy - h, w, h);
+      const gx = px + (u - v) * hw;
+      const gy = py + (u + v) * hh - groundHeight(u, v, rel) * scale;
+      const key = `car:${alongX ? 'x' : 'y'}:${(seed >>> 16) % CAR_COLORS.length}:${dir < 0 ? 1 : 0}:${(seed >>> 4) % 3 === 0 ? 1 : 0}`;
+      ctx.drawImage(this.sprites.get(key, scale), Math.round(gx - ax), Math.round(gy - hh - ay));
     }
   }
 

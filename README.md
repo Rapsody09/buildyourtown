@@ -80,6 +80,12 @@ Molette : zoom. La barre de gauche donne accès à tous les outils, avec le
 nom, le coût et la touche au survol. Les groupes Transport, Énergie, Eau,
 Services, Parcs, Terrain et Récompenses ouvrent la liste de leurs bâtiments.
 
+**Sur mobile ou tablette**, la barre d'outils passe en bas de l'écran et les
+panneaux s'ouvrent en volets. Un doigt déplace la vue quand aucun outil n'est
+actif, et trace ou zone quand un outil l'est ; deux doigts déplacent et zooment
+(pincement). Pour poser un bâtiment, un premier appui montre l'aperçu et un
+second appui au même endroit confirme.
+
 ### Ce qui fait vivre la ville
 
 - **Électricité** : le courant se propage de proche en proche entre zones,
@@ -118,6 +124,7 @@ make dev        # serveur de dev avec rechargement à chaud : http://localhost:5
 make build      # typecheck + build de production dans dist/
 make typecheck
 make simtest ARGS="30 12345 7 mixed moyen"   # simulation headless : années, graine, impôts, scénario, difficulté
+make screenshots # régénère les captures de ce README depuis l'image de production
 ```
 
 Adresses utiles en dev : `http://localhost:5173/?demo=10` ouvre une ville de

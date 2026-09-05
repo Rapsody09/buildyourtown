@@ -131,6 +131,8 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, 
 }
 
 const fmtPct = (x: number) => `${Math.round(x * 100)} %`;
+/** small screens: panels become bottom sheets, the toolbar a horizontal strip */
+const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
 /** numbers stored in log entries are formatted in the current language when displayed */
 const fmtParams = (p?: Record<string, string | number>) =>
   p && Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' ? fmtInt(v) : v]));
@@ -249,6 +251,7 @@ export class Hud {
     }
     const help = h('button', { class: 'menu-btn help' }, h('span', { class: 'emoji', text: '?' }));
     this.tooltip(help, () => [t('help'), '']);
+    help.addEventListener('click', () => this.setStatus(t(isMobile() ? 'help.touch' : 'help')));
     bar.append(help);
   }
 
@@ -256,6 +259,7 @@ export class Hud {
   private tooltip(btn: HTMLElement, lines: () => [string, string]): void {
     const tip = $('tooltip');
     btn.addEventListener('mouseenter', () => {
+      if (isMobile()) return;
       const [title, meta] = lines();
       tip.replaceChildren(h('b', { text: title }), ...(meta ? [h('span', { text: meta })] : []));
       const r = btn.getBoundingClientRect();
@@ -289,6 +293,7 @@ export class Hud {
       }),
     );
     this.flyout.hidden = false;
+    if (isMobile()) { this.flyout.style.top = ''; return; }
     const top = anchor.getBoundingClientRect().top;
     this.flyout.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 40 - this.flyout.offsetHeight))}px`;
   }
@@ -334,7 +339,8 @@ export class Hud {
     this.closePanels();
     el.hidden = !wasHidden;
     if (el.classList.contains('menu')) {
-      // drop-down menus open next to the button that owns them
+      // drop-down menus open next to the button that owns them (bottom sheet on phones)
+      if (isMobile()) { el.style.top = ''; return; }
       const owner = id === 'maps-menu' ? $('btn-maps') : $('btn-disasters');
       const top = owner.getBoundingClientRect().top;
       el.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 40 - el.offsetHeight))}px`;
@@ -442,8 +448,7 @@ export class Hud {
     const labels = $('welcome-difficulty');
     const slider = $<HTMLInputElement>('welcome-diff');
     for (const key of keys) {
-      const el = h('span', { class: 'diff-label', title: t(`diff.${key}.desc`) },
-        h('b', { text: t(`diff.${key}`) }), h('small', { text: t('diff.money', { amt: fmtMoney(DIFFICULTIES[key].money) }) }));
+      const el = h('span', { class: 'diff-label', title: t(`diff.${key}.desc`) }, h('b', { text: t(`diff.${key}`) }));
       el.addEventListener('click', () => { slider.value = String(keys.indexOf(key)); slider.dispatchEvent(new Event('input')); });
       labels.append(el);
     }
@@ -473,7 +478,7 @@ export class Hud {
     const gallery = $('welcome-maps');
     this.welcomeSeeds = Array.from({ length: 5 }, () => randomSeed());
     this.welcomeSeed = null;
-    const random = h('button', { type: 'button', class: 'card map selected' }, h('span', { class: 'dice', text: '🎲' }), h('span', { text: t('welcome.random') }));
+    const random = h('button', { type: 'button', class: 'card map selected' }, h('span', { class: 'qmark', text: '?' }), h('span', { text: t('welcome.random') }));
     const select = (btn: HTMLElement, seed: number | null) => {
       this.welcomeSeed = seed;
       for (const b of gallery.children) b.classList.toggle('selected', b === btn);
@@ -579,6 +584,7 @@ export class Hud {
     const net = income - expenses;
     this.budgetNet.textContent = `${net >= 0 ? '+' : ''}${fmtMoney(net)} ${t('top.perMonth')}`;
     this.date.textContent = `${months()[city.month]} ${city.year}`;
+    $('date-mobile').textContent = this.date.textContent;
     this.pop.textContent = fmtInt(city.stats.pop);
     const short = city.power.demand > city.power.supply;
     this.power.textContent = `${fmtInt(city.power.demand)} / ${fmtInt(city.power.supply)} MW`;

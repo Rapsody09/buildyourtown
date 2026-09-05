@@ -3,45 +3,121 @@ import { Renderer, ZOOM_LEVELS } from '../render/renderer';
 
 export interface InputHandlers {
   onHover(tile: Pt | null): void;
-  onDragStart(tile: Pt): void;
+  /** `touch` is true for a finger: click tools then preview first and confirm on a second tap */
+  onDragStart(tile: Pt, touch: boolean): void;
   onDrag(tile: Pt): void;
   onDragEnd(tile: Pt): void;
   onDragCancel(): void;
   onCameraChange(): void;
   /** return true when the key was consumed */
   onKey(key: string, e: KeyboardEvent): boolean;
+  /** does a tool currently want single-finger drags? (otherwise one finger pans) */
+  toolActive(): boolean;
 }
 
+interface Finger {
+  x: number;
+  y: number;
+}
+
+/**
+ * Mouse: left = tool, right/middle or space = pan, wheel = zoom.
+ * Touch: one finger = tool when one is selected, otherwise pan; two fingers =
+ * pan + pinch zoom (rendered as a CSS transform during the gesture, then
+ * snapped to the nearest zoom step).
+ */
 export function attachInput(canvas: HTMLCanvasElement, renderer: Renderer, h: InputHandlers): void {
   let panning = false;
   let dragging = false;
   let spaceHeld = false;
   let lastMouse: Pt = { x: 0, y: 0 };
   let lastTile: Pt | null = null;
+  const fingers = new Map<number, Finger>();
+  let pinch: { dist: number; cx: number; cy: number; zoom: number; scale: number; dx: number; dy: number } | null = null;
 
+  canvas.style.touchAction = 'none';
   const samePt = (a: Pt | null, b: Pt | null) => !!a && !!b && a.x === b.x && a.y === b.y;
-  const tileAt = (e: MouseEvent): Pt => {
+  const local = (e: { clientX: number; clientY: number }): Pt => {
     const r = canvas.getBoundingClientRect();
-    return renderer.screenToTile(e.clientX - r.left, e.clientY - r.top);
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  };
+  const tileAt = (e: { clientX: number; clientY: number }): Pt => {
+    const p = local(e);
+    return renderer.screenToTile(p.x, p.y);
   };
 
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  canvas.addEventListener('mousedown', (e) => {
+  const startPan = (e: PointerEvent) => {
+    panning = true;
+    lastMouse = { x: e.clientX, y: e.clientY };
+    canvas.style.cursor = 'grabbing';
+  };
+
+  const startPinch = () => {
+    if (dragging) { dragging = false; h.onDragCancel(); }
+    panning = false;
+    const [a, b] = [...fingers.values()];
+    pinch = {
+      dist: Math.hypot(a.x - b.x, a.y - b.y),
+      cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2,
+      zoom: renderer.camera.zoom, scale: 1, dx: 0, dy: 0,
+    };
+    canvas.style.transformOrigin = `${pinch.cx}px ${pinch.cy}px`;
+  };
+
+  const endPinch = () => {
+    if (!pinch) return;
+    const target = pinch.zoom * pinch.scale;
+    const level = ZOOM_LEVELS.reduce((b, z) => Math.abs(z - target) < Math.abs(b - target) ? z : b);
+    // pan first (in screen px at the old zoom), then zoom around the pinch centre
+    renderer.camera.x -= pinch.dx / renderer.camera.zoom;
+    renderer.camera.y -= pinch.dy / renderer.camera.zoom;
+    renderer.zoomAt(pinch.cx, pinch.cy, level);
+    canvas.style.transform = '';
+    pinch = null;
+    h.onCameraChange();
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    if (e.pointerType === 'touch') {
+      fingers.set(e.pointerId, local(e));
+      if (fingers.size === 2) { startPinch(); return; }
+      if (fingers.size > 2) return;
+      if (h.toolActive()) {
+        dragging = true;
+        h.onDragStart(tileAt(e), true);
+      } else {
+        startPan(e);
+      }
+      return;
+    }
     lastMouse = { x: e.clientX, y: e.clientY };
     if (e.button === 1 || e.button === 2 || (e.button === 0 && spaceHeld)) {
-      panning = true;
-      canvas.style.cursor = 'grabbing';
+      startPan(e);
       e.preventDefault();
       return;
     }
     if (e.button === 0) {
       dragging = true;
-      h.onDragStart(tileAt(e));
+      h.onDragStart(tileAt(e), false);
     }
   });
 
-  window.addEventListener('mousemove', (e) => {
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'touch' && fingers.has(e.pointerId)) fingers.set(e.pointerId, local(e));
+    if (pinch && fingers.size >= 2) {
+      const [a, b] = [...fingers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
+      const minS = ZOOM_LEVELS[0] / pinch.zoom, maxS = ZOOM_LEVELS[ZOOM_LEVELS.length - 1] / pinch.zoom;
+      pinch.scale = Math.max(minS, Math.min(maxS, dist / Math.max(1, pinch.dist)));
+      pinch.dx = cx - pinch.cx;
+      pinch.dy = cy - pinch.cy;
+      canvas.style.transform = `translate(${pinch.dx}px, ${pinch.dy}px) scale(${pinch.scale})`;
+      return;
+    }
     if (panning) {
       const z = renderer.camera.zoom;
       renderer.camera.x -= (e.clientX - lastMouse.x) / z;
@@ -53,36 +129,48 @@ export function attachInput(canvas: HTMLCanvasElement, renderer: Renderer, h: In
     const t = tileAt(e);
     if (samePt(t, lastTile)) return;
     lastTile = t;
-    h.onHover(t);
+    if (e.pointerType === 'mouse') h.onHover(t);
     if (dragging) h.onDrag(t);
   });
 
-  window.addEventListener('mouseup', (e) => {
-    if (panning && (e.button === 1 || e.button === 2 || e.button === 0)) {
+  const release = (e: PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      fingers.delete(e.pointerId);
+      if (pinch) {
+        if (fingers.size < 2) endPinch();
+        if (fingers.size === 0) panning = false;
+        return;
+      }
+    }
+    if (panning) {
       panning = false;
       canvas.style.cursor = spaceHeld ? 'grab' : '';
       return;
     }
-    if (dragging && e.button === 0) {
+    if (dragging && (e.pointerType === 'touch' || e.button === 0)) {
       dragging = false;
-      h.onDragEnd(tileAt(e));
+      if (e.type === 'pointercancel') h.onDragCancel();
+      else h.onDragEnd(tileAt(e));
     }
-  });
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
 
-  canvas.addEventListener('mouseleave', () => {
+  canvas.addEventListener('pointerleave', (e) => {
+    if (e.pointerType !== 'mouse') return;
     lastTile = null;
     h.onHover(null);
   });
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const r = canvas.getBoundingClientRect();
-    zoomStep(e.deltaY < 0 ? 1 : -1, e.clientX - r.left, e.clientY - r.top);
+    const p = local(e);
+    zoomStep(e.deltaY < 0 ? 1 : -1, p.x, p.y);
   }, { passive: false });
 
   function zoomStep(dir: number, sx: number, sy: number): void {
     const i = ZOOM_LEVELS.indexOf(renderer.camera.zoom);
-    const j = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, i + dir));
+    const j = Math.max(0, Math.min(ZOOM_LEVELS.length - 1, (i < 0 ? 1 : i) + dir));
     if (i === j) return;
     renderer.zoomAt(sx, sy, ZOOM_LEVELS[j]);
     h.onCameraChange();
@@ -129,6 +217,8 @@ export function attachInput(canvas: HTMLCanvasElement, renderer: Renderer, h: In
     if (dragging) { dragging = false; h.onDragCancel(); }
     panning = false;
     spaceHeld = false;
+    fingers.clear();
+    if (pinch) { canvas.style.transform = ''; pinch = null; }
     canvas.style.cursor = '';
   });
 }

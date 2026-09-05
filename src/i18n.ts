@@ -140,6 +140,8 @@ const D: Record<string, [string, string]> = {
   'flyout.choose': ['choisir…', 'choose…'],
   'help': ['Glisser pour tracer. Clic droit, espace ou flèches : déplacer. Molette : zoom. P : pause.', 'Drag to build. Right click, space or arrows: pan. Wheel: zoom. P: pause.'],
   'locked': ['Verrouillé : {pop} habitants requis', 'Locked: {pop} residents needed'],
+  'touch.confirm': ['Touchez à nouveau la même case pour construire.', 'Tap the same tile again to build.'],
+  'help.touch': ['Un doigt : outil choisi, ou déplacement sans outil. Deux doigts : déplacer et zoomer. Appuyez deux fois sur une case pour poser un bâtiment.', 'One finger: selected tool, or pan when no tool. Two fingers: pan and zoom. Tap a tile twice to place a building.'],
 
   // ---- top bar & menus
   'top.funds': ['Fonds', 'Funds'],
@@ -223,7 +225,6 @@ const D: Record<string, [string, string]> = {
   'welcome.found': ['Fonder la ville', 'Found the city'],
   'welcome.cancel': ['Annuler', 'Cancel'],
   'welcome.lang': ['Langue', 'Language'],
-  'diff.money': ['{amt} de départ', '{amt} to start'],
   'diff.facile.desc': ['Demande soutenue, entretien −15 %, catastrophes rares, emprunts à 5 %.', 'Strong demand, upkeep −15%, rare disasters, 5% bonds.'],
   'diff.moyen.desc': ['Équilibré : demande, coûts et risques normaux, emprunts à 6 %.', 'Balanced: normal demand, costs and risks, 6% bonds.'],
   'diff.difficile.desc': ['Demande timide, entretien +25 %, catastrophes fréquentes, emprunts à 8 %.', 'Timid demand, upkeep +25%, frequent disasters, 8% bonds.'],

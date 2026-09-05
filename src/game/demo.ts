@@ -113,7 +113,14 @@ export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
   const railBase = (tallRows.length ? tallRows : rows).reduce((b, r) => Math.abs(r - (cy + 6)) < Math.abs(b - (cy + 6)) ? r : b);
   const railRow = railBase + 2;
   if (!opts.bare) {
-    for (let x = bx; x < bx + S; x++) if (inside(x, railRow) && city.overlay[city.idx(x, railRow)] === Overlay.None) apply('rail', { x, y: railRow });
+    // one plan per continuous run, so the track goes straight across the streets (level crossings)
+    for (let x = bx; x < bx + S; x++) {
+      if (!inside(x, railRow)) continue;
+      let x1 = x;
+      while (x1 + 1 < bx + S && inside(x1 + 1, railRow)) x1++;
+      apply('rail', { x, y: railRow }, { x: x1, y: railRow });
+      x = x1;
+    }
   }
 
   // structures placed near preferred spots, before zoning, on free land

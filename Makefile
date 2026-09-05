@@ -1,4 +1,4 @@
-.PHONY: image dev build typecheck lock sh prod-image prod-run
+.PHONY: image dev build typecheck lock sh prod-image prod-run screenshots
 
 # Reconstruit l'image (à refaire quand package.json change)
 image:
@@ -38,3 +38,7 @@ prod-image:
 
 prod-run: prod-image
 	docker run --rm -p 127.0.0.1:8081:8080 buildyourtown/web:local
+
+# Captures du README (docs/screenshots), prises sur l'image de production
+screenshots:
+	scripts/screenshots.sh

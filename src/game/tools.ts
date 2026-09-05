@@ -34,13 +34,15 @@ export function planTool(city: City, tool: Tool, from: Pt, to: Pt): ToolPlan {
   const tiles: number[] = [];
   let cost = 0;
   let sloped = 0;
-  for (const p of candidates) {
+  for (let k = 0; k < candidates.length; k++) {
+    const p = candidates[k];
     if (!city.inBounds(p.x, p.y)) continue;
     const i = city.idx(p.x, p.y);
     if (!canApply(city, tool, i)) {
       if (ZONE_OF_TOOL[tool] !== undefined && city.terrain[i] === Terrain.Land && !city.isFlat(p.x, p.y)) sloped++;
       continue;
     }
+    if ((tool === 'rail' || tool === 'road') && !crossingOk(city, tool, candidates, k)) continue;
     tiles.push(i);
     cost += tileCost(city, tool, i);
   }
@@ -99,6 +101,34 @@ function planStruct(city: City, tool: Tool & keyof typeof STRUCTS, at: Pt): Tool
     if (!railOk || !roadOk) { valid = false; reason = t('reason.station'); }
   }
   return { tool, tiles: valid ? footprint : [], cost: def.cost, footprint, valid, reason };
+}
+
+/**
+ * A railway may cross a road (and a road a railway) only at a level crossing:
+ * the existing way runs straight through the tile and the new one goes
+ * straight across it. No track laid along a street, no crossing on a bend.
+ */
+function crossingOk(city: City, tool: 'rail' | 'road', path: Pt[], k: number): boolean {
+  const p = path[k];
+  const i = city.idx(p.x, p.y);
+  const onRoad = tool === 'rail' && city.overlay[i] === Overlay.Road;
+  const onRail = tool === 'road' && city.rail[i] === 1;
+  if (!onRoad && !onRail) return true;
+  const isRoad = (x: number, y: number) => city.inBounds(x, y) && city.overlay[city.idx(x, y)] === Overlay.Road;
+  const isRail = (x: number, y: number) => city.inBounds(x, y) && city.rail[city.idx(x, y)] === 1;
+  const way = onRoad ? isRoad : isRail;
+  // the way already there: continues on both sides along one axis, nothing on the other
+  const wayX = way(p.x - 1, p.y) && way(p.x + 1, p.y) && !way(p.x, p.y - 1) && !way(p.x, p.y + 1);
+  const wayY = way(p.x, p.y - 1) && way(p.x, p.y + 1) && !way(p.x - 1, p.y) && !way(p.x + 1, p.y);
+  if (!wayX && !wayY) return false;
+  // the new line: goes straight through along the other axis, via the plan or what is already built
+  const mine = onRoad ? isRail : isRoad;
+  const inPlan = (x: number, y: number) => (k > 0 && path[k - 1].x === x && path[k - 1].y === y)
+    || (k + 1 < path.length && path[k + 1].x === x && path[k + 1].y === y);
+  const link = (x: number, y: number) => inPlan(x, y) || mine(x, y);
+  return wayX
+    ? link(p.x, p.y - 1) && link(p.x, p.y + 1) && !link(p.x - 1, p.y) && !link(p.x + 1, p.y)
+    : link(p.x - 1, p.y) && link(p.x + 1, p.y) && !link(p.x, p.y - 1) && !link(p.x, p.y + 1);
 }
 
 function tileCost(city: City, tool: Tool, i: number): number {

@@ -25,7 +25,8 @@ changement de sauvegarde incompatible ou refonte → major.
    français. Une puce = un changement perceptible.
 4. **Script.** `scripts/release.sh <bump>` fait le reste : bump dans
    `package.json` et `package-lock.json` (npm dans le conteneur), ligne
-   « Version » du README, typecheck + build, commit `release: vX.Y.Z`, tag
+   « Version » du README, typecheck + build, captures du README régénérées
+   (`scripts/screenshots.sh`, badge à la nouvelle version), commit `release: vX.Y.Z`, tag
    `vX.Y.Z`, push avec le tag, puis `~/infra/scripts/build-push-buildyourtown.sh`
    (build de l'image, push `:latest` + `:vX.Y.Z` + `:<sha>` sur la registry,
    `rollout restart`) et contrôle que le site sert la nouvelle version.

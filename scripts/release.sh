@@ -5,9 +5,10 @@
 #   3. CHANGELOG.md : la section « ## X.Y.Z — AAAA-MM-JJ » doit déjà exister
 #      (rédigée à la main ou par le skill /release), sinon le script s'arrête
 #   4. typecheck + build de production
-#   5. commit « release: vX.Y.Z », tag vX.Y.Z, push (branche + tag)
-#   6. build + push de l'image et redéploiement (script du dépôt infra)
-#   7. vérification : le site sert bien la nouvelle version
+#   5. captures du README régénérées avec le nouveau badge de version
+#   6. commit « release: vX.Y.Z », tag vX.Y.Z, push (branche + tag)
+#   7. build + push de l'image et redéploiement (script du dépôt infra)
+#   8. vérification : le site sert bien la nouvelle version
 #
 # Usage : scripts/release.sh <patch|minor|major|X.Y.Z> [--no-deploy]
 set -euo pipefail
@@ -42,7 +43,10 @@ sed -i "s/^Version [0-9][0-9.]*/Version $NEW/" README.md
 echo "=== typecheck + build"
 make build >/dev/null
 
-git add package.json package-lock.json README.md CHANGELOG.md
+echo "=== captures d'écran"
+scripts/screenshots.sh
+
+git add package.json package-lock.json README.md CHANGELOG.md docs/screenshots
 git commit -q -m "release: v$NEW"
 git tag -a "v$NEW" -m "BuildYourTown v$NEW"
 echo "=== push"

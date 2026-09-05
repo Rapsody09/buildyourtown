@@ -59,6 +59,8 @@ let dragFrom: Pt | null = null;
 let plan: ToolPlan | null = null;
 let dirty = true;
 let unsaved = false;
+/** on touch screens a click tool previews on the first tap and places on the second tap of the same tile */
+let touchPending: Pt | null = null;
 
 const hud = new Hud({
   onTool: setTool,
@@ -111,6 +113,7 @@ function triggerDisaster(kind: DisasterKind): void {
 
 function setTool(tl: Tool): void {
   tool = tool === tl ? 'none' : tl;
+  touchPending = null;
   hud.setTool(tool);
   plan = null;
   dragFrom = null;
@@ -254,15 +257,30 @@ function queryTile(p: Pt): void {
 }
 
 attachInput(canvas, renderer, {
+  toolActive: () => tool !== 'none',
   onHover: (p) => {
     hover = p;
     if (p && isClickTool(tool)) clickPreview(p);
     dirty = true;
   },
-  onDragStart: (p) => {
+  onDragStart: (p, touch) => {
     if (tool === 'query') { queryTile(p); return; }
     if (tool === 'none') return;
-    if (isClickTool(tool)) { clickPreview(p); commitPlan(); clickPreview(p); return; }
+    if (isClickTool(tool)) {
+      if (touch && !(touchPending && touchPending.x === p.x && touchPending.y === p.y)) {
+        // first tap: show the footprint, ask for a second tap
+        hover = p;
+        touchPending = p;
+        clickPreview(p);
+        hud.setStatus(t('touch.confirm'), true);
+        return;
+      }
+      touchPending = null;
+      clickPreview(p);
+      commitPlan();
+      clickPreview(p);
+      return;
+    }
     dragFrom = p;
     updatePlan(p);
   },

@@ -3,6 +3,24 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.2.0 — 2026-09-05
+
+Le jeu se joue sur téléphone et tablette, et les rues prennent vie.
+
+- Jouable au tactile : un doigt déplace la vue ou trace avec l'outil choisi,
+  deux doigts déplacent et zooment. Pour poser un bâtiment, un premier appui
+  montre l'emplacement, un second au même endroit confirme.
+- Mise en page adaptée aux petits écrans : barre d'outils en bas, panneaux en
+  volets, bandeau réduit à l'essentiel.
+- De vraies voitures sur les routes : berlines et fourgonnettes de toutes
+  couleurs, avec phares et feux arrière, qui roulent sur leur voie.
+- Une voie ferrée ne peut plus longer une rue : rail et route ne se croisent
+  qu'en passage à niveau, tout droit.
+- Écran d'accueil : la carte au hasard s'affiche avec un « ? », les aperçus de
+  cartes occupent toute la largeur, la somme de départ n'est plus affichée.
+- Le drapeau anglais s'affiche en entier.
+- Les captures du site montrent toujours la version publiée.
+
 ## 0.1.1 — 2026-09-05
 
 Réglages d'interface et de confort après la première mise en ligne.
