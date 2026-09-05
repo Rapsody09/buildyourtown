@@ -164,6 +164,12 @@ const D: Record<string, [string, string]> = {
   'touch.tool.tap': ['{name} · appui long pour poser', '{name} · press and hold to place'],
   'touch.release': ['Relâchez pour poser', 'Release to place'],
   'minimap.title': ['Carte', 'Map'],
+  'demand.title': ['Demande', 'Demand'],
+  'demand.advice.res': ['Des habitants veulent s\'installer : zonez du résidentiel.', 'People want to move in: zone residential.'],
+  'demand.advice.com': ['Les commerces manquent : zonez du commercial.', 'Shops are short: zone commercial.'],
+  'demand.advice.ind': ['L\'industrie cherche des terrains : zonez de l\'industriel.', 'Industry wants land: zone industrial.'],
+  'demand.advice.none': ['Rien ne pousse fort en ce moment : soignez l\'accès, le courant, l\'eau et les services.', 'Nothing is in demand right now: look after access, power, water and services.'],
+  'demand.hint': ['La demande dépend de la population, des emplois, des impôts et de l\'attrait de la ville.', 'Demand depends on population, jobs, taxes and how attractive the town is.'],
   'minimap': ['Carte : appuyez pour vous y rendre', 'Map: tap to go there'],
 
   // ---- top bar & menus

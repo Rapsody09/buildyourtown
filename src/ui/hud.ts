@@ -162,6 +162,9 @@ export class Hud {
   private query = $('query');
   private flyout = $('flyout');
   private rci = { r: $('rci-r'), c: $('rci-c'), i: $('rci-i') };
+  /** a small copy of the demand bars lives in the minimap head, where phones can see it */
+  private rciCopies: { r: HTMLElement; c: HTMLElement; i: HTMLElement }[] = [];
+  private lastDemand = { r: 0, c: 0, i: 0 };
   private toolButtons = new Map<Tool, HTMLButtonElement>();
   private groupButtons = new Map<string, { button: HTMLButtonElement; items: FlyoutItem[] }>();
   private speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#speed button[data-speed]'));
@@ -195,6 +198,16 @@ export class Hud {
     this.buildWelcome();
     this.bindMinimap();
     this.buildTutorial();
+    // the R C I demand bars, small, in the minimap head
+    {
+      const mk = (z: string) => h('div', { class: `bar ${z}` }, h('div', { class: 'fill' }));
+      const r = mk('r'), c = mk('c'), i = mk('i');
+      $('minimap-name').after(h('span', { class: 'bars mini', id: 'rci-map', 'data-i18n-title': 'top.demand.title' }, r, c, i));
+      this.rciCopies.push({ r: r.firstElementChild as HTMLElement, c: c.firstElementChild as HTMLElement, i: i.firstElementChild as HTMLElement });
+    }
+    // tapping the bars, in the minimap or in the top bar, opens the demand details
+    $('rci-map').addEventListener('click', (e) => { e.stopPropagation(); this.toggleDemand(true); });
+    document.querySelector('.stat.rci')!.addEventListener('click', () => this.toggleDemand(false));
     this.toolPill.addEventListener('click', () => this.handlers.onTool('query'));
     // the top bar figures open what explains them: funds -> budget, population -> journal, date -> speed
     document.querySelector('.stat.money')!.addEventListener('click', () => $('btn-budget').click());
@@ -365,7 +378,7 @@ export class Hud {
 
   // ---- panels --------------------------------------------------------------
 
-  openPanel(id: 'panel-budget' | 'maps-menu' | 'panel-cities' | 'panel-journal'): void {
+  openPanel(id: 'panel-budget' | 'maps-menu' | 'panel-cities' | 'panel-journal' | 'demand-pop'): void {
     this.closePanels();
     $(id).hidden = false;
   }
@@ -386,7 +399,7 @@ export class Hud {
   }
 
   closePanels(): void {
-    for (const id of ['panel-budget', 'maps-menu', 'panel-cities', 'panel-journal']) $(id).hidden = true;
+    for (const id of ['panel-budget', 'maps-menu', 'panel-cities', 'panel-journal', 'demand-pop']) $(id).hidden = true;
     $('speed').classList.remove('show');
     this.closeFlyout();
   }
@@ -659,6 +672,49 @@ export class Hud {
     $('help-next').textContent = this.helpIndex === screens.length - 1 ? t('tuto.done') : t('tuto.next');
   }
 
+  // ---- demand details -------------------------------------------------------
+
+  /** The three demands with figures and a word of advice; opens by the minimap or under the top bar. */
+  private toggleDemand(fromMinimap: boolean): void {
+    const pop = $('demand-pop');
+    const wasHidden = pop.hidden;
+    this.closePanels();
+    if (!wasHidden) return;
+    this.fillDemand();
+    pop.hidden = false;
+    pop.classList.toggle('near-minimap', fromMinimap && !isMobile());
+    if (isMobile()) { pop.style.top = ''; return; }
+    if (fromMinimap) {
+      const r = $('minimap').getBoundingClientRect();
+      pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
+    } else {
+      pop.style.top = '62px';
+    }
+  }
+
+  private fillDemand(): void {
+    const pop = $('demand-pop');
+    const d = this.lastDemand;
+    const rows: ['r' | 'c' | 'i', string, number][] = [['r', t('tool.res'), d.r], ['c', t('tool.com'), d.c], ['i', t('tool.ind'), d.i]];
+    const best = rows.reduce((b, x) => (x[2] > b[2] ? x : b));
+    const advice = best[2] > 0.08 ? t(`demand.advice.${best[0] === 'r' ? 'res' : best[0] === 'c' ? 'com' : 'ind'}`) : t('demand.advice.none');
+    pop.replaceChildren(
+      h('div', { class: 'head', text: t('demand.title') }),
+      ...rows.map(([z, label, v]) => {
+        const pct = Math.round(Math.sqrt(Math.abs(v)) * 50);
+        const fill = h('i', { class: `fill ${z}` });
+        fill.style.left = v >= 0 ? '50%' : `${50 - pct}%`;
+        fill.style.width = `${pct}%`;
+        const whole = Math.round(Math.abs(v) * 100);
+        const num = h('b', { text: `${whole === 0 ? '' : v > 0 ? '+' : '−'}${whole} %` });
+        num.classList.toggle('negative', whole > 0 && v < 0);
+        return h('div', { class: 'drow' }, h('span', { class: 'lbl', text: label }), h('span', { class: 'track' }, fill), num);
+      }),
+      h('p', { class: 'advice', text: advice }),
+      h('p', { class: 'hint', text: t('demand.hint') }),
+    );
+  }
+
   // ---- minimap ------------------------------------------------------------
 
   private minimap = $<HTMLCanvasElement>('minimap-canvas');
@@ -759,6 +815,13 @@ export class Hud {
     this.setBar(this.rci.r, city.demand.r);
     this.setBar(this.rci.c, city.demand.c);
     this.setBar(this.rci.i, city.demand.i);
+    this.lastDemand = { r: city.demand.r, c: city.demand.c, i: city.demand.i };
+    if (!$('demand-pop').hidden) this.fillDemand();
+    for (const copy of this.rciCopies) {
+      this.setBar(copy.r, city.demand.r);
+      this.setBar(copy.c, city.demand.c);
+      this.setBar(copy.i, city.demand.i);
+    }
 
     if (this.taxInput.value !== String(city.taxRate)) {
       this.taxInput.value = String(city.taxRate);

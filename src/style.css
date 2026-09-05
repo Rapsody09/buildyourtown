@@ -297,6 +297,26 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 /* the o of Town is a hard hat, sized on the font */
 .hat { display: inline-block; width: 0.7em; height: 0.545em; vertical-align: -0.03em; margin: 0 0.015em 0 0.02em; }
 .brand, .welcome .logo { white-space: nowrap; }
+/* demand bars, small copy in the minimap head */
+.bars.mini { display: inline-flex; gap: 3px; height: 14px; margin: 0 8px; align-items: stretch; flex: none; }
+.bars.mini .bar { width: 6px; border-radius: 2px; }
+.bars.mini .bar .fill { border-radius: 2px; }
+#minimap .head #minimap-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#rci-map, .stat.rci { cursor: pointer; }
+/* demand details */
+#demand-pop { width: 300px; }
+#demand-pop .head { font-family: var(--font-head); font-size: 16px; font-weight: 800; padding: 4px 8px 6px; }
+#demand-pop .drow { display: flex; align-items: center; gap: 10px; padding: 5px 8px; }
+#demand-pop .drow .lbl { width: 92px; font-weight: 700; }
+#demand-pop .drow .track { flex: 1; position: relative; height: 10px; border-radius: 5px; background: rgba(255,255,255,0.08); overflow: hidden; }
+#demand-pop .drow .track::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.35); }
+#demand-pop .drow .track .fill { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
+#demand-pop .drow .track .fill.r { background: #5ad46b; }
+#demand-pop .drow .track .fill.c { background: #4f97ff; }
+#demand-pop .drow .track .fill.i { background: #ffcc3d; }
+#demand-pop .drow b { width: 54px; text-align: right; font-weight: 800; }
+#demand-pop .advice { margin: 8px 8px 2px; font-weight: 700; }
+#demand-pop .hint { margin: 2px 8px 6px; font-size: 12px; color: var(--muted); }
 /* ---- tutorial ---- */
 #btn-help { font-family: var(--font-head); font-weight: 800; font-size: 18px; width: 42px; padding: 0; color: var(--accent); }
 .tutorial {
@@ -476,6 +496,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
     overflow-y: auto;
   }
   #flyout { padding: 8px 10px; }
+  #demand-pop { width: auto; }
   #flyout button.item { padding: 6px 8px 6px 5px; }
   .panel { max-height: 60vh; }
   .panel .body { padding: 6px 12px 12px; }
