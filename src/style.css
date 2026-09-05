@@ -452,7 +452,13 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   .stat .ico { font-size: 15px; }
   .stat .val { font-size: 13px; }
   .stat .val.small { font-size: 12px; }
-  .stat .sub, .stat.rci, #speed button:nth-child(3) { display: none; }
+  .stat .sub, #speed button:nth-child(3) { display: none; }
+  /* demand bars stay in the top bar on phones, compact: no icon, no letters */
+  .stat.rci { padding: 0 7px; }
+  .stat.rci .ico { display: none; }
+  .stat.rci .bars { gap: 3px; margin: 0; height: 18px; }
+  .stat.rci .bar { width: 6px; border-radius: 2px; }
+  .stat.rci .bar span { display: none; }
   #btn-cities { max-width: 120px; }
   .group.menus button, button.lang { height: 36px; padding: 0 7px; }
   #speed button { height: 36px; width: 42px; }

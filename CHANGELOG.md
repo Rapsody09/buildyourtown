@@ -3,6 +3,11 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.4.4 — 2026-09-05
+
+- Sur téléphone, les barres de demande R, C, I sont aussi dans le bandeau du
+  haut, en version compacte ; un appui dessus ouvre le détail.
+
 ## 0.4.3 — 2026-09-05
 
 - Le volet Demande a une croix pour se fermer.
