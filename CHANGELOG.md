@@ -3,6 +3,22 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.4.0 — 2026-09-05
+
+La ville s'anime.
+
+- Fumée au-dessus des usines et des centrales, tant qu'elles ont du courant.
+- Trains sur le réseau ferré (locomotive, voiture voyageurs, wagon plat), cargo
+  près du port, voiliers sur les grandes étendues d'eau.
+- Un avion décolle de l'aéroport, survole la ville et se pose.
+- Feux clignotants au sommet des tours et des antennes, gyrophares sur la
+  caserne et le commissariat.
+- Fontaine du grand parc et balançoire de l'aire de jeux animées.
+- Une grue de chantier travaille quelques mois sur chaque bâtiment qui monte de
+  niveau.
+- Nouveau logo : le o de Town est un casque de chantier ; nouveau favicon.
+- Le bouton de langue montre la langue en cours.
+
 ## 0.3.5 — 2026-09-05
 
 - Le bouton des sauvegardes affiche le nom de la ville en cours.

@@ -81,6 +81,7 @@ function tryMerge(city: City, i: number, o: ZoneType, target: number): boolean {
       }
       if (!ok || !hasRoad) continue;
       city.addBuilding(o, size, ox, oy, target);
+      city.builtAt[city.idx(ox, oy)] = city.year * 12 + city.month;
       return true;
     }
   }
@@ -123,6 +124,7 @@ function growthPass(city: City): void {
       } else {
         level[i] = target;
       }
+      if (target >= 2) city.builtAt[i] = city.year * 12 + city.month;
     } else if ((d < -0.15 || lvl > cap) && lvl > 0) {
       const strength = lvl > cap ? 0.5 : -d;
       if (rng() < BASE_DECAY * strength) {

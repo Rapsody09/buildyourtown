@@ -293,6 +293,9 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 .menu label.toggle { display: flex; gap: 8px; align-items: center; padding: 8px 6px 4px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 4px; }
 .menu label.toggle input { accent-color: var(--accent); }
 
+/* the o of Town is a hard hat, sized on the font */
+.hat { display: inline-block; width: 0.7em; height: 0.545em; vertical-align: -0.03em; margin: 0 0.015em 0 0.02em; }
+.brand, .welcome .logo { white-space: nowrap; }
 /* ---- tutorial ---- */
 #btn-help { font-family: var(--font-head); font-weight: 800; font-size: 18px; width: 42px; padding: 0; color: var(--accent); }
 .tutorial {

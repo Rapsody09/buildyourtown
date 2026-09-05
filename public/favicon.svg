@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#141a28"/>
-  <polygon points="32,12 52,22 32,32 12,22" fill="#f6b73c"/>
-  <polygon points="12,22 32,32 32,54 12,44" fill="#c98a12"/>
-  <polygon points="52,22 32,32 32,54 52,44" fill="#3fc1c9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#f6b73c"/>
+  <text x="16" y="28.5" text-anchor="middle" font-family="'Baloo 2','Arial Rounded MT Bold','Arial Black',Arial,sans-serif" font-weight="900" font-size="25" fill="#1d1405">B</text>
+  <path d="M10 10 Q10 4.5 16 4.5 Q22 4.5 22 10 Z" fill="#f4f4f4" stroke="#8a6a10" stroke-width="0.7"/>
+  <rect x="8.4" y="9.6" width="15.2" height="2.3" rx="1.15" fill="#e8e8e8" stroke="#8a6a10" stroke-width="0.7"/>
+  <rect x="15" y="4.5" width="2" height="5.2" fill="#ffffff"/>
 </svg>

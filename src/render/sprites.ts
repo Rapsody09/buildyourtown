@@ -26,6 +26,16 @@ export function groundHeight(u: number, v: number, c: Corners): number {
 /** Footprint coords (u, v in [0, N]) + height in px -> sprite-local pixel coords. */
 /** when set, footprint axes are swapped: the sprite is drawn turned by a quarter (mirrored across the diagonal) */
 let SWAP = false;
+
+/** Animated bits a sprite asks the renderer to draw over it: smoke rising from a chimney, a blinking light. */
+export interface Effect {
+  kind: 'smoke' | 'beacon';
+  u: number;
+  v: number;
+  z: number;
+  color: string;
+}
+let currentEffects: Effect[] = [];
 function P(u: number, v: number, h = 0): Pt2 {
   if (SWAP) [u, v] = [v, u];
   return [(u - v) * TILE_W / 2 + N * TILE_W / 2, (u + v) * TILE_H / 2 + MAX_H - h - groundHeight(u, v, SLOPE)];
@@ -704,20 +714,12 @@ class Scene {
 
   chimney(u: number, v: number, h: number, z0 = 0, w = 0.12, smoke = true): void {
     this.cylinder(u + w / 2, v + w / 2, w / 2, h - z0, '#5a5f66', '#2e2e2e', { z0 });
-    if (!smoke) return;
-    const ctx = this.ctx;
-    this.elems.push({
-      key: 100,
-      draw: () => {
-        const [x, y] = P(u + w / 2, v + w / 2, h);
-        ctx.fillStyle = 'rgba(200,200,200,0.55)';
-        for (let k = 0; k < 3; k++) {
-          ctx.beginPath();
-          ctx.arc(x + k * 2.5, y - 4 - k * 5, 2.5 + k, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      },
-    });
+    if (smoke) currentEffects.push({ kind: 'smoke', u: u + w / 2, v: v + w / 2, z: h, color: '' });
+  }
+
+  /** a small light the renderer blinks at (u, v, z) */
+  beacon(u: number, v: number, z: number, color = '#ff3b30'): void {
+    currentEffects.push({ kind: 'beacon', u, v, z, color });
   }
 
   /** flat ellipse on the ground (ponds, pads) */
@@ -742,6 +744,7 @@ class Scene {
 
   /** vertical line on top of something (antennas, flag poles) */
   antenna(u: number, v: number, z: number, len: number, color = '#333'): void {
+    this.beacon(u, v, z + len);
     this.custom(100, (ctx) => {
       const [x, y] = P(u, v, z);
       ctx.strokeStyle = color;
@@ -1364,7 +1367,7 @@ const STRUCT_LOT: Record<string, string> = {
  * joined by paths and the hedge only runs along the open sides, so a cluster
  * of small parks reads as a single garden with a pond, a playground, benches.
  */
-function parkTile(s: Scene, mask: number, variant: number): void {
+function parkTile(s: Scene, mask: number, variant: number, frame = 0): void {
   const path = '#d9d2bd', hedge = '#2e7d3a', hedgeTop = '#43a047';
   s.custom(-2, (c) => {
     poly(c, diamond(0.02), 'rgba(180,235,130,0.35)');
@@ -1405,6 +1408,9 @@ function parkTile(s: Scene, mask: number, variant: number): void {
       s.box(0.7, 0.72, 0.72, 0.74, 9, '#4f6d8f', '#4f6d8f');
       s.box(0.84, 0.72, 0.86, 0.74, 9, '#4f6d8f', '#4f6d8f');
       s.box(0.7, 0.725, 0.86, 0.735, 1, '#7a5230', '#7a5230', { z0: 9 });
+      // the seat swings back and forth
+      const sw = [-0.035, 0, 0.035][frame % 3];
+      s.box(0.76 + sw, 0.715, 0.8 + sw, 0.745, 1.2, '#e04848', '#e04848', { z0: 3 + Math.abs(sw) * 40 });
       s.tree(0.74, 0.26, 4);
       break;
     default:
@@ -1527,6 +1533,7 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
     case 'police':
       s.box(0.4, 0.4, 2.6, 1.9, 22, '#8c9bb5', '#3e5a8a', { windows: true });
       s.box(0.9, 1.9, 2.1, 2.55, 10, '#a9b6cc', '#6f84a8');
+      s.beacon(2.7, 2.7, 24, '#3d7fe0');
       s.custom(50, (c) => {
         const [x, y] = P(2.7, 2.7);
         c.strokeStyle = '#ddd';
@@ -1548,6 +1555,7 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
         }
       });
       s.box(2.15, 0.2, 2.75, 0.8, 40, '#b34a43', '#7a2b27');
+      s.beacon(2.45, 0.5, 42, '#ff3b30');
       break;
     case 'school':
       s.box(0.3, 0.3, 2.7, 1.3, 16, '#f4e3a1', '#e07b39', { windows: true });
@@ -1685,6 +1693,24 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
         poly(c, [P(0, 1.42), P(3, 1.42), P(3, 1.58), P(0, 1.58)], '#d9d2bd');
       });
       s.disc(2.1, 2.1, 0.6, '#3b78b5', 0, -1);
+      // fountain in the pond: the jet has three heights
+      s.cylinder(2.1, 2.1, 0.12, 3, '#b9bec6', '#d5d9de');
+      s.custom(30, (c) => {
+        const jet = [10, 14, 12][frame % 3];
+        const [x, y] = P(2.1, 2.1, 3);
+        c.strokeStyle = 'rgba(190,230,255,0.9)';
+        c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(x, y);
+        c.lineTo(x, y - jet);
+        c.stroke();
+        c.fillStyle = 'rgba(190,230,255,0.8)';
+        for (const [dx, dy] of [[-3, 3], [3, 2], [-1.5, 6], [2, 6]]) {
+          c.beginPath();
+          c.arc(x + dx, y - jet + dy + (frame % 3), 1, 0, Math.PI * 2);
+          c.fill();
+        }
+      });
       for (const [u, v] of [[0.4, 0.4], [1.0, 0.5], [0.5, 1.0], [2.5, 0.5], [2.6, 1.1], [0.6, 2.4], [1.1, 2.7], [2.7, 2.7]]) {
         s.tree(u, v, 5.5);
       }
@@ -1695,8 +1721,11 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
 
 // ---- cache ----------------------------------------------------------------
 
+const NO_EFFECTS: Effect[] = [];
+
 export class SpriteCache {
   private cache = new Map<string, HTMLCanvasElement>();
+  private effects = new Map<string, Effect[]>();
 
   /** Whole sprite; `n` is the footprint side, the anchor is the back corner of the footprint. */
   get(key: string, scale: number, n = 1): HTMLCanvasElement {
@@ -1710,13 +1739,20 @@ export class SpriteCache {
       ctx.scale(scale, scale);
       ctx.lineJoin = 'round';
       N = n;
+      currentEffects = [];
       drawByKey(ctx, key);
+      if (!this.effects.has(key)) this.effects.set(key, currentEffects);
       N = 1;
       SWAP = false;
       SLOPE = [0, 0, 0, 0];
       this.cache.set(k, c);
     }
     return c;
+  }
+
+  /** smoke and lights declared by the sprite with this key (built at least once already) */
+  effectsOf(key: string): Effect[] {
+    return this.effects.get(key) ?? NO_EFFECTS;
   }
 
   /**
@@ -1751,6 +1787,223 @@ export class SpriteCache {
     }
     return c;
   }
+}
+
+// ---- vehicles on rails and water, construction cranes ----------------------
+
+export type VehicleKind = 'loco' | 'wagon' | 'freight' | 'cargo' | 'sail';
+
+/**
+ * Centred on the tile, long side along `axis`; `back` mirrors it so the visible
+ * short face is the rear. Parts are drawn from the far end to the near end.
+ */
+function drawVehicle(ctx: Ctx, kind: VehicleKind, axis: 'x' | 'y', back: number): void {
+  const pt = (l: number, w: number, z = 0): Pt2 => {
+    const ll = back ? -l : l;
+    return axis === 'x' ? P(0.5 + ll, 0.5 + w, z) : P(0.5 + w, 0.5 + ll, z);
+  };
+  const edge = 'rgba(0,0,0,0.35)';
+  const parts: { key: number; draw: () => void }[] = [];
+  const near = (l: number) => (back ? -l : l); // position along the viewer's axis: larger = nearer
+  /** a box: long side toward the viewer, the end that faces the viewer, the top */
+  const block = (l0: number, l1: number, w0: number, w1: number, z0: number, h: number, wall: string, top: string, lw = 0.5, key = near((l0 + l1) / 2)) => {
+    const zt = z0 + h;
+    const le = back ? l0 : l1;
+    parts.push({ key, draw: () => {
+      poly(ctx, [pt(l0, w1, z0), pt(l1, w1, z0), pt(l1, w1, zt), pt(l0, w1, zt)], shade(wall, 0.9), edge, lw);
+      poly(ctx, [pt(le, w0, z0), pt(le, w1, z0), pt(le, w1, zt), pt(le, w0, zt)], shade(wall, 0.7), edge, lw);
+      poly(ctx, [pt(l0, w0, zt), pt(l1, w0, zt), pt(l1, w1, zt), pt(l0, w1, zt)], top, edge, lw);
+    } });
+  };
+  /** a row of windows on the near long side of the block spanning l0..l1 */
+  const windows = (l0: number, l1: number, w: number, z0: number, z1: number, count: number, color = '#1f2a44') => {
+    parts.push({ key: near((l0 + l1) / 2) + 0.001, draw: () => {
+      const step = (l1 - l0) / count;
+      for (let k = 0; k < count; k++) {
+        const a = l0 + step * k + step * 0.2, b = l0 + step * (k + 1) - step * 0.2;
+        poly(ctx, [pt(a, w, z0), pt(b, w, z0), pt(b, w, z1), pt(a, w, z1)], color);
+      }
+    } });
+  };
+  const flush = () => { parts.sort((a, b) => a.key - b.key); for (const part of parts) part.draw(); };
+
+  if (kind === 'loco' || kind === 'wagon' || kind === 'freight') {
+    const L = 0.6, W = 0.2;
+    // bogies and any deck are the base: drawn before everything that stands on them
+    block(-L / 2 + 0.04, -L / 2 + 0.16, -W / 2, W / 2, 0, 1.5, '#2b2f36', '#2b2f36', 0.5, -20);
+    block(L / 2 - 0.16, L / 2 - 0.04, -W / 2, W / 2, 0, 1.5, '#2b2f36', '#2b2f36', 0.5, -20);
+    if (kind === 'loco') {
+      block(-L / 2, L / 2 - 0.08, -W / 2, W / 2, 1.5, 9, '#d63c3c', '#a82e2e');
+      block(L / 2 - 0.08, L / 2, -W / 2 + 0.02, W / 2 - 0.02, 1.5, 6, '#f2c14e', '#d9a520');
+      windows(-L / 2 + 0.06, L / 2 - 0.12, W / 2, 6, 8.5, 3, '#a9dcff');
+      const le = back ? -L / 2 : L / 2;
+      parts.push({ key: 9, draw: () => poly(ctx, [pt(le, -0.04, 3), pt(le, 0.04, 3), pt(le, 0.04, 5), pt(le, -0.04, 5)], back ? '#ff5a4a' : '#fff6cc') });
+    } else if (kind === 'wagon') {
+      block(-L / 2, L / 2, -W / 2, W / 2, 1.5, 3.5, '#2f5fb8', '#2f5fb8');
+      block(-L / 2, L / 2, -W / 2, W / 2, 5, 4.5, '#eef2f7', '#8f979f');
+      windows(-L / 2 + 0.04, L / 2 - 0.04, W / 2, 6, 8.6, 4);
+      parts.push({ key: 0.002, draw: () => poly(ctx, [pt(-L / 2 + 0.02, W / 2, 4.6), pt(L / 2 - 0.02, W / 2, 4.6), pt(L / 2 - 0.02, W / 2, 5.4), pt(-L / 2 + 0.02, W / 2, 5.4)], '#f2c14e') });
+    } else {
+      block(-L / 2, L / 2, -W / 2, W / 2, 1.5, 1.5, '#5a5f66', '#7a7f86', 0.5, -10);
+      block(-L / 2 + 0.03, -0.02, -W / 2 + 0.02, W / 2 - 0.02, 3, 6, '#3fa845', '#2f8a36');
+      block(0.02, L / 2 - 0.03, -W / 2 + 0.02, W / 2 - 0.02, 3, 6, '#e0603a', '#b84a2a');
+    }
+    flush();
+    return;
+  }
+  if (kind === 'cargo') {
+    const L = 1.0, W = 0.3;
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    const [wx, wy] = pt(-L / 2 - 0.1, 0, 0);
+    ctx.beginPath();
+    ctx.ellipse(wx, wy, 7, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // hull: long side, then the end that faces the viewer (pointed bow, or the flat stern when going away)
+    const hull = (z0: number, z1: number, side: string, end: string) => {
+      poly(ctx, [pt(-L / 2, W / 2, z0), pt(L / 2 - 0.22, W / 2, z0), pt(L / 2, 0, z0), pt(L / 2, 0, z1), pt(L / 2 - 0.22, W / 2, z1), pt(-L / 2, W / 2, z1)], side, edge, 0.4);
+      if (back) poly(ctx, [pt(-L / 2, -W / 2, z0), pt(-L / 2, W / 2, z0), pt(-L / 2, W / 2, z1), pt(-L / 2, -W / 2, z1)], end, edge, 0.4);
+      else poly(ctx, [pt(L / 2 - 0.22, -W / 2, z0), pt(L / 2, 0, z0), pt(L / 2, 0, z1), pt(L / 2 - 0.22, -W / 2, z1)], end, edge, 0.4);
+    };
+    hull(0, 1.6, '#b83232', '#8f2626');
+    hull(1.6, 5.5, '#2f3640', '#22272e');
+    poly(ctx, [pt(-L / 2, -W / 2, 5.5), pt(L / 2 - 0.22, -W / 2, 5.5), pt(L / 2, 0, 5.5), pt(L / 2 - 0.22, W / 2, 5.5), pt(-L / 2, W / 2, 5.5)], '#8a9aa8', edge, 0.4);
+    const cols = ['#e0603a', '#3a6fd8', '#3fa845', '#f2c14e', '#8c5bd8', '#20a6b8'];
+    for (let k = 0; k < 3; k++) {
+      const l0 = -0.22 + k * 0.2, l1 = l0 + 0.17;
+      block(l0, l1, -W / 2 + 0.03, 0, 5.5, 4.5, cols[k], shade(cols[k], 0.85));
+      block(l0, l1, 0.02, W / 2 - 0.03, 5.5, 4.5, cols[k + 3], shade(cols[k + 3], 0.85));
+      if (k < 2) block(l0, l1, -W / 2 + 0.03, 0, 10, 4.5, cols[k + 2], shade(cols[k + 2], 0.85));
+    }
+    block(-L / 2 + 0.04, -L / 2 + 0.2, -W / 2 + 0.04, W / 2 - 0.04, 5.5, 10, '#f2f4f6', '#d8dde3');
+    windows(-L / 2 + 0.05, -L / 2 + 0.19, W / 2 - 0.04, 12, 14, 2, '#5fbdf0');
+    block(-L / 2 + 0.08, -L / 2 + 0.14, -0.04, 0.04, 15.5, 5, '#d63c3c', '#22272e');
+    parts.push({ key: near(L / 2 - 0.1), draw: () => {
+      const [m0x, m0y] = pt(L / 2 - 0.1, 0, 5.5), [m1x, m1y] = pt(L / 2 - 0.1, 0, 14);
+      ctx.strokeStyle = '#d8dde3';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(m0x, m0y);
+      ctx.lineTo(m1x, m1y);
+      ctx.stroke();
+    } });
+    flush();
+    return;
+  }
+  // sailing boat
+  const L = 0.44, W = 0.16;
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  const [kx, ky] = pt(-L / 2 - 0.06, 0, 0);
+  ctx.beginPath();
+  ctx.ellipse(kx, ky, 4, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  poly(ctx, [pt(-L / 2, W / 2, 0), pt(L / 2 - 0.14, W / 2, 0), pt(L / 2, 0, 0), pt(L / 2, 0, 3), pt(L / 2 - 0.14, W / 2, 3), pt(-L / 2, W / 2, 3)], '#2f5390', edge, 0.4);
+  if (back) poly(ctx, [pt(-L / 2, -W / 2, 0), pt(-L / 2, W / 2, 0), pt(-L / 2, W / 2, 3), pt(-L / 2, -W / 2, 3)], '#24417a', edge, 0.4);
+  else poly(ctx, [pt(L / 2 - 0.14, -W / 2, 0), pt(L / 2, 0, 0), pt(L / 2, 0, 3), pt(L / 2 - 0.14, -W / 2, 3)], '#24417a', edge, 0.4);
+  poly(ctx, [pt(-L / 2, -W / 2, 3), pt(L / 2 - 0.14, -W / 2, 3), pt(L / 2, 0, 3), pt(L / 2 - 0.14, W / 2, 3), pt(-L / 2, W / 2, 3)], '#f4f4f4', edge, 0.4);
+  const mast0 = pt(-0.02, 0, 3), mast1 = pt(-0.02, 0, 19);
+  ctx.strokeStyle = '#6b4a2b';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(mast0[0], mast0[1]);
+  ctx.lineTo(mast1[0], mast1[1]);
+  ctx.stroke();
+  const sail = (a: Pt2, b: Pt2, c: Pt2, color: string) => {
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.quadraticCurveTo((b[0] + c[0]) / 2 + 3, (b[1] + c[1]) / 2 + 1, c[0], c[1]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  };
+  sail(pt(-0.02, 0, 18.5), pt(-0.02, 0, 4.5), pt(-L / 2 + 0.02, 0, 4.5), '#ffffff');
+  sail(pt(-0.02, 0, 16), pt(L / 2 - 0.02, 0, 3.5), pt(-0.02, 0, 4.5), '#ffe08a');
+}
+
+/** A tower crane standing on the tile, jib turned by `frame` (eighths of a turn); overlays a building that just grew. */
+function drawCrane(ctx: Ctx, frame: number): void {
+  const a = (frame % 8) * Math.PI / 4;
+  const top = 84;
+  const yellow = '#f2c14e', dark = '#8a6a10';
+  const s = new Scene(ctx, 0);
+  // concrete base and lattice mast
+  s.box(0.38, 0.38, 0.62, 0.62, 2, '#a8adb5', '#c9ced6');
+  s.box(0.455, 0.455, 0.545, 0.545, top, '#e0b23a', yellow, { z0: 2 });
+  s.render();
+  ctx.strokeStyle = 'rgba(80,60,10,0.6)';
+  ctx.lineWidth = 0.6;
+  for (let z = 4; z < top; z += 5) {
+    const [x0, y0] = P(0.455, 0.545, z), [x1, y1] = P(0.545, 0.545, z + 5), [x2, y2] = P(0.545, 0.455, z);
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  const jibU = 0.5 + Math.cos(a) * 0.9, jibV = 0.5 + Math.sin(a) * 0.9;
+  const cwU = 0.5 - Math.cos(a) * 0.32, cwV = 0.5 - Math.sin(a) * 0.32;
+  const [mx, my] = P(0.5, 0.5, top);
+  const [jx, jy] = P(jibU, jibV, top);
+  const [cx, cy] = P(cwU, cwV, top);
+  // trussed jib: two chords and a zigzag between them
+  ctx.strokeStyle = yellow;
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(jx, jy);
+  ctx.moveTo(cx, cy - 3);
+  ctx.lineTo(jx, jy - 3);
+  ctx.stroke();
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  for (let k = 0; k <= 10; k++) {
+    const t = k / 10;
+    const x = cx + (jx - cx) * t, y = cy + (jy - cy) * t - (k % 2 ? 3 : 0);
+    if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  // tower top, tie lines, cab and counterweight
+  ctx.beginPath();
+  ctx.moveTo(mx, my - 12);
+  ctx.lineTo(jx, jy - 3);
+  ctx.moveTo(mx, my - 12);
+  ctx.lineTo(cx, cy - 3);
+  ctx.stroke();
+  ctx.strokeStyle = yellow;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(mx, my);
+  ctx.lineTo(mx, my - 12);
+  ctx.stroke();
+  const [cabx, caby] = P(0.5 + Math.cos(a) * 0.14, 0.5 + Math.sin(a) * 0.14, top);
+  ctx.fillStyle = '#3d4654';
+  ctx.fillRect(cabx - 3, caby - 6, 6, 6);
+  ctx.fillStyle = '#a9dcff';
+  ctx.fillRect(cabx - 2, caby - 5, 4, 2.5);
+  ctx.fillStyle = '#7d8590';
+  ctx.fillRect(cx - 3.5, cy - 2, 7, 5);
+  // trolley, hoist line and hook block
+  const [hx, hy] = P(0.5 + Math.cos(a) * 0.68, 0.5 + Math.sin(a) * 0.68, top);
+  ctx.fillStyle = dark;
+  ctx.fillRect(hx - 2, hy - 1, 4, 2);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+  ctx.lineTo(hx, hy + 24);
+  ctx.stroke();
+  ctx.fillStyle = '#5a5f66';
+  ctx.fillRect(hx - 2.5, hy + 24, 5, 3);
+  ctx.fillStyle = '#ff3b30';
+  ctx.beginPath();
+  ctx.arc(mx, my - 13, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineCap = 'butt';
 }
 
 // ---- cars ------------------------------------------------------------------
@@ -1855,10 +2108,12 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'park': {
       drawGrass(ctx, 1);
       const s = new Scene(ctx, num(2));
-      parkTile(s, num(1), num(2));
+      parkTile(s, num(1), num(2), parts[3] ? num(3) : 0);
       s.render();
       return;
     }
+    case 'vehicle': return drawVehicle(ctx, parts[1] as VehicleKind, parts[2] as 'x' | 'y', num(3));
+    case 'crane': return drawCrane(ctx, num(1));
   }
 }
 

@@ -227,10 +227,9 @@ export class Hud {
     $('btn-maps').addEventListener('click', () => this.togglePanel('maps-menu'));
     $('btn-journal').addEventListener('click', () => this.togglePanel('panel-journal'));
     $('btn-cities').addEventListener('click', () => this.togglePanel('panel-cities'));
-    // the button shows the language you would switch to, flag included
-    const other = lang === 'fr' ? 'en' : 'fr';
-    $('btn-lang').querySelector('.flag')!.className = `flag ${other}`;
-    $('btn-lang').querySelector('.code')!.textContent = other.toUpperCase();
+    // the button shows the language in use; a click switches to the other one
+    $('btn-lang').querySelector('.flag')!.className = `flag ${lang}`;
+    $('btn-lang').querySelector('.code')!.textContent = lang.toUpperCase();
     $('btn-lang').addEventListener('click', () => handlers.onLang(lang === 'fr' ? 'en' : 'fr'));
     $('query-close').addEventListener('click', () => this.showQuery(null));
     $('cities-new').addEventListener('click', () => { this.closePanels(); this.openWelcome(false); });

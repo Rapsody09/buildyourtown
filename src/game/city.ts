@@ -168,6 +168,8 @@ export class City {
   roadsDirty = true;
   /** wires, zones or structures changed: power, water and coverage need a refresh */
   gridDirty = true;
+  /** month index (year * 12 + month) when the building on the tile last grew; 0 = never; not saved */
+  builtAt: Int32Array;
 
   private constructor(seed: number, terrain: Uint8Array, overlay: Uint8Array, elev: Uint8Array) {
     this.seed = seed;
@@ -188,6 +190,7 @@ export class City {
     this.watered = new Uint8Array(n);
     this.landValue = new Uint8Array(n).fill(60);
     this.crime = new Uint8Array(n);
+    this.builtAt = new Int32Array(n);
     this.cover = {
       police: new Uint8Array(n), fire: new Uint8Array(n), education: new Uint8Array(n),
       health: new Uint8Array(n), park: new Uint8Array(n),

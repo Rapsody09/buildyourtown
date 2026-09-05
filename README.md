@@ -31,6 +31,8 @@ Erwann avec Claude Fable 5.1
   trajets domicile-emploi et embouteillages, budget détaillé, emprunts,
   arrêtés municipaux, trois niveaux de difficulté.
 - Catastrophes : incendies qui se propagent, inondations, tornades, séismes.
+- Une ville vivante : voitures, trains, cargo et voiliers, avion, fumées
+  d'usines, éoliennes qui tournent, grues sur les chantiers.
 - Journal avec courbes, conseils et historique ; cartes de données
   (pollution, trafic, foncier, couverture des services…).
 
