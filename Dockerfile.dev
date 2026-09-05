@@ -1,0 +1,11 @@
+# Outillage de dev uniquement (node, vite, tsc). Le code source est monté
+# depuis l'hôte, node_modules vit dans l'image / un volume anonyme.
+FROM node:22-alpine
+
+RUN mkdir -p /app && chown node:node /app
+WORKDIR /app
+USER node
+ENV npm_config_cache=/tmp/.npm
+
+COPY --chown=node:node package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
