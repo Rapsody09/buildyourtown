@@ -11,7 +11,7 @@ English. No install, no account, saves stay in your browser. To play:
 [buildyourtown.com](https://buildyourtown.com). To run it yourself, see
 « Lancer chez soi » below.*
 
-Version 0.1.0 · [Jouer en ligne](https://buildyourtown.com) · Réalisé par
+Version 0.1.1 · [Jouer en ligne](https://buildyourtown.com) · Réalisé par
 Erwann avec Claude Fable 5.1
 
 ![Vue d'ensemble d'une ville](docs/screenshots/overview.png)
