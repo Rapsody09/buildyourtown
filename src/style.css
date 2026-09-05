@@ -307,8 +307,21 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 .cards .card b { font-family: var(--font-head); font-size: 15px; }
 .cards .card span { font-size: 11px; color: var(--muted); }
 .cards .card.selected { outline: 3px solid var(--accent); outline-offset: -1px; }
-.cards .card.diff { flex: 1; min-width: 150px; align-items: flex-start; text-align: left; }
-.cards .card.diff .desc { font-size: 11px; color: var(--muted); line-height: 1.3; margin-top: 4px; white-space: normal; }
+/* difficulty slider: a thick amber track with three stops */
+.diff-slider { display: flex; flex-direction: column; gap: 6px; padding: 4px 6px 0; }
+.diff-slider input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 12px; margin: 6px 0; background: transparent; }
+.diff-slider input[type="range"]::-webkit-slider-runnable-track { height: 12px; border-radius: 6px; background: linear-gradient(180deg, #ffcf5c 0%, var(--accent) 100%); box-shadow: inset 0 1px 2px rgba(0,0,0,0.35), 0 0 0 1px var(--accent-dark); }
+.diff-slider input[type="range"]::-moz-range-track { height: 12px; border-radius: 6px; background: linear-gradient(180deg, #ffcf5c 0%, var(--accent) 100%); box-shadow: inset 0 1px 2px rgba(0,0,0,0.35), 0 0 0 1px var(--accent-dark); }
+.diff-slider input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; margin-top: -7px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff4d6 0%, #ffcf5c 45%, var(--accent-dark) 100%); border: 2px solid #2a1c05; box-shadow: 0 2px 6px rgba(0,0,0,0.5); cursor: pointer; }
+.diff-slider input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fff4d6 0%, #ffcf5c 45%, var(--accent-dark) 100%); border: 2px solid #2a1c05; box-shadow: 0 2px 6px rgba(0,0,0,0.5); cursor: pointer; }
+.diff-labels { display: flex; justify-content: space-between; }
+.diff-label { display: flex; flex-direction: column; align-items: center; gap: 1px; width: 33%; cursor: pointer; color: var(--muted); }
+.diff-label:first-child { align-items: flex-start; }
+.diff-label:last-child { align-items: flex-end; }
+.diff-label b { font-family: var(--font-head); font-size: 15px; }
+.diff-label small { font-size: 11px; }
+.diff-label.selected { color: var(--text); }
+.diff-label.selected b { color: var(--accent); }
 .cards.maps .card { padding: 4px; min-width: 0; }
 .cards.maps .card canvas { display: block; width: 132px; height: 78px; border-radius: 6px; }
 .cards.maps .card .dice { font-size: 30px; line-height: 1; padding-top: 10px; }

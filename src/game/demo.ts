@@ -1,11 +1,13 @@
 import type { City } from './city';
-import { relaxSlopes } from './terrain';
+import { hash2 } from './rng';
 import { computeStats, recomputeRoadDist, refreshGrid, tick } from './sim';
+import { STRUCTS } from './structs';
 import { applyPlan, planTool } from './tools';
+import { relaxSlopes } from './terrain';
 import { Overlay, TICKS_PER_MONTH, Terrain, type StructType, type Tool } from './types';
 
 export interface DemoOptions {
-  /** side of the square area to urbanise */
+  /** side of the square area to flatten and urbanise */
   size?: number;
   mode?: 'mixed' | 'res-only';
   /** years to simulate right away */
@@ -36,8 +38,6 @@ function flattenArea(city: City, x0: number, y0: number, S: number): void {
   for (let cy = y0; cy <= y0 + S; cy++) for (let cx = x0; cx <= x0 + S; cx++) hs.push(elev[cy * cs + cx]);
   hs.sort((a, b) => a - b);
   const h = hs[hs.length >> 1];
-  // plateau, then a raised apron around it so the edge is a gentle slope;
-  // corners shared with water stay at sea level and relaxSlopes settles the rest
   for (let d = 0; d <= h; d++) {
     for (let cy = y0 - d; cy <= y0 + S + d; cy++) {
       for (let cx = x0 - d; cx <= x0 + S + d; cx++) {
@@ -53,33 +53,18 @@ function flattenArea(city: City, x0: number, y0: number, S: number): void {
   relaxSlopes(elev, cs);
 }
 
-/** 3x3 blocks (grid coordinates) reserved for structures in a 10x10 block grid. */
-const BLOCK_STRUCTS: Record<string, StructType> = {
-  '0,9': 'coal', '9,9': 'coal', '9,8': 'coal',
-  '1,1': 'tower', '5,1': 'tower', '8,1': 'tower', '1,5': 'tower', '5,5': 'tower', '8,5': 'tower', '1,8': 'tower', '5,8': 'tower', '8,8': 'tower',
-  '2,2': 'police', '7,2': 'police', '4,6': 'police',
-  '2,6': 'fire', '7,6': 'fire',
-  '3,1': 'school', '6,7': 'school',
-  '5,3': 'hospital',
-  '1,4': 'bigpark', '8,4': 'bigpark', '4,3': 'bigpark',
-  '5,2': 'bus', '2,5': 'station', '6,5': 'station',
-};
-
-/** Industry along the bottom rows, commerce in the middle, housing elsewhere. */
-function blockZone(gx: number, gy: number): 'res' | 'com' | 'ind' {
-  if (gy >= 8) return 'ind';
-  if ((gy === 4 || gy === 5) && gx >= 3 && gx <= 6) return 'com';
-  if ((gy === 3 || gy === 6) && (gx === 4 || gx === 5)) return 'com';
-  return 'res';
-}
-
 /**
- * Lays out a grid city (roads every 4 tiles, 3x3 blocks of zones or
- * structures) on the most land-rich window of the map.
+ * Lays out a demo town with an organic outline: a blob around the centre of
+ * the most land-rich window, streets at irregular spacing, shops in the
+ * middle, homes around, industry on the far side, a railway, services and
+ * parks scattered, and a few blocks left as open land.
  */
 export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
-  const S = opts.size ?? 40;
+  const S = opts.size ?? 60;
   const mode = opts.mode ?? 'mixed';
+  const seed = city.seed;
+  // the demo must stay readable and repeatable: no random disasters (the menu still works)
+  city.randomDisasters = false;
 
   let best: DemoArea = { x: 0, y: 0, size: S, land: -1 };
   for (let y = 0; y + S <= city.size; y += 4) {
@@ -93,56 +78,117 @@ export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
       if (land > best.land) best = { x, y, size: S, land };
     }
   }
+  const { x: bx, y: by } = best;
+  flattenArea(city, bx, by, S);
+
+  const cx = bx + S / 2, cy = by + S / 2, R = S / 2 - 2;
+  const noise = (k: number) => (hash2(seed, k, 77) / 4294967296) * 2 - 1;
+  const radiusAt = (a: number) => R * (0.74 + 0.14 * Math.sin(3 * a + noise(1) * 3) + 0.1 * Math.cos(5 * a + noise(2) * 3) + 0.05 * Math.sin(8 * a));
+  const inside = (x: number, y: number): boolean => {
+    if (!city.inBounds(x, y) || city.terrain[city.idx(x, y)] !== Terrain.Land || !city.isFlat(x, y)) return false;
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    return Math.hypot(dx, dy) < radiusAt(Math.atan2(dy, dx));
+  };
+  const polar = (x: number, y: number) => {
+    const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+    return { d: Math.hypot(dx, dy) / R, a: Math.atan2(dy, dx) };
+  };
 
   const savedMoney = city.money;
   city.money = 1e9;
-  const { x: bx, y: by } = best;
-  const pending: StructType[] = [];
-  flattenArea(city, bx, by, S);
-  for (let k = 0; k <= S; k += 4) {
-    applyPlan(city, planTool(city, 'road', { x: bx + k, y: by }, { x: bx + k, y: by + S }));
-    applyPlan(city, planTool(city, 'road', { x: bx, y: by + k }, { x: bx + S, y: by + k }));
-  }
-  // a power line along one avenue and a railway along another, mostly to exercise the sprites
+  const apply = (tool: Tool, from: { x: number; y: number }, to = from) => applyPlan(city, planTool(city, tool, from, to));
+
+  // streets: rows and columns at 4/5/4/3 spacing, clipped to the blob
+  const rows: number[] = [], cols: number[] = [];
+  const pattern = [4, 5, 4, 3, 5, 4];
+  for (let y = by + 1, k = 0; y < by + S; y += pattern[k++ % pattern.length]) rows.push(y);
+  for (let x = bx + 2, k = 2; x < bx + S; x += pattern[k++ % pattern.length]) cols.push(x);
+  for (const y of rows) for (let x = bx; x < bx + S; x++) if (inside(x, y)) apply('road', { x, y });
+  for (const x of cols) for (let y = by; y < by + S; y++) if (inside(x, y)) apply('road', { x, y });
+
+  // a railway on its own line, two blocks below the centre, and stations against it
+  // rail two rows below a street whose block is 5 deep: a row of zones stays between
+  // street and rail (power hops across one tile only), and a 2x2 station fits below the rail
+  const tallRows = rows.filter((r, k) => k + 1 < rows.length && rows[k + 1] - r === 5);
+  const railBase = (tallRows.length ? tallRows : rows).reduce((b, r) => Math.abs(r - (cy + 6)) < Math.abs(b - (cy + 6)) ? r : b);
+  const railRow = railBase + 2;
   if (!opts.bare) {
-    applyPlan(city, planTool(city, 'wire', { x: bx, y: by + 8 }, { x: bx + S, y: by + 8 }));
-    applyPlan(city, planTool(city, 'rail', { x: bx, y: by + 24 }, { x: bx + S, y: by + 24 }));
+    for (let x = bx; x < bx + S; x++) if (inside(x, railRow) && city.overlay[city.idx(x, railRow)] === Overlay.None) apply('rail', { x, y: railRow });
   }
-  for (let gy = 0; gy < S / 4; gy++) {
-    for (let gx = 0; gx < S / 4; gx++) {
-      const from = { x: bx + gx * 4 + 1, y: by + gy * 4 + 1 };
-      const st = opts.bare ? undefined : BLOCK_STRUCTS[`${gx},${gy}`];
-      let tool: Tool = mode === 'res-only' ? 'res' : blockZone(gx, gy);
-      if (st) {
-        // clear trees first, then place; the structure is queued if the spot is unusable
-        applyPlan(city, planTool(city, 'bulldoze', from, { x: from.x + 2, y: from.y + 2 }));
-        // stations sit in the lower corner of their block so they touch the railway avenue
-        const at = st === 'station' ? { x: from.x + 1, y: from.y + 1 } : from;
-        const p = planTool(city, st, at, at);
-        if (p.valid) { applyPlan(city, p); continue; }
-        pending.push(st);
-        tool = 'res';
-      }
-      applyPlan(city, planTool(city, tool, from, { x: from.x + 2, y: from.y + 2 }));
-    }
-  }
-  // structures that did not fit take over the first usable zone block instead
-  for (const st of pending) {
-    outer: for (let gy = 0; gy < S / 4; gy++) {
-      for (let gx = 0; gx < S / 4; gx++) {
-        const from = { x: bx + gx * 4 + 1, y: by + gy * 4 + 1 };
-        const to = { x: from.x + 2, y: from.y + 2 };
-        const i = city.idx(from.x, from.y);
-        const o = city.overlay[i];
-        if (o === Overlay.Struct) continue;
-        const zoneTool: Tool | null = o === Overlay.Res ? 'res' : o === Overlay.Com ? 'com' : o === Overlay.Ind ? 'ind' : null;
-        applyPlan(city, planTool(city, 'bulldoze', from, to));
-        const p = planTool(city, st, from, from);
-        if (p.valid) { applyPlan(city, p); break outer; }
-        if (zoneTool) applyPlan(city, planTool(city, zoneTool, from, to)); // put the zoning back
+
+  // structures placed near preferred spots, before zoning, on free land
+  const place = (type: StructType, px: number, py: number, maxR = 9): boolean => {
+    const n = STRUCTS[type].size;
+    for (let r = 0; r <= maxR; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const ox = Math.round(px) + dx, oy = Math.round(py) + dy;
+          let ok = true;
+          for (let yy = oy; yy < oy + n && ok; yy++) for (let xx = ox; xx < ox + n; xx++) {
+            if (!inside(xx, yy) || city.overlay[city.idx(xx, yy)] > Overlay.Tree || city.rail[city.idx(xx, yy)]) { ok = false; break; }
+          }
+          if (!ok) continue;
+          const p = planTool(city, type, { x: ox, y: oy }, { x: ox, y: oy });
+          if (p.valid) { applyPlan(city, p); return true; }
+        }
       }
     }
+    return false;
+  };
+  const at = (d: number, a: number) => ({ x: cx + Math.cos(a) * R * d, y: cy + Math.sin(a) * R * d });
+  const DOWN = Math.PI / 2; // industry faces the bottom of the screen
+  if (!opts.bare && mode === 'mixed') {
+    for (const k of [-0.5, 0.15, 0.7]) { const p = at(0.78, DOWN + k); place('coal', p.x, p.y); }
+    { const p = at(0.7, DOWN - 0.9); place('gas', p.x, p.y); }
+    for (let k = 0; k < 6; k++) { const p = at(0.48, k * Math.PI / 3 + 0.3); place('tower', p.x, p.y); }
+    place('tower', cx, cy - 4);
+    for (let k = 0; k < 3; k++) { const p = at(0.36, k * 2.1 + 0.8); place('police', p.x, p.y); }
+    for (let k = 0; k < 3; k++) { const p = at(0.55, k * 2.1 + 1.9); place('fire', p.x, p.y); }
+    for (let k = 0; k < 3; k++) { const p = at(0.42, k * 2.1 + 3.0); place('school', p.x, p.y); }
+    for (let k = 0; k < 2; k++) { const p = at(0.22, k * Math.PI + 2.3); place('hospital', p.x, p.y); }
+    for (let k = 0; k < 4; k++) { const p = at(0.58, k * Math.PI / 2 + 0.4); place('bigpark', p.x, p.y); }
+    for (let k = 0; k < 6; k++) { const p = at(0.3 + 0.35 * (k % 3) / 2, k * 1.05 + 0.5); place('park', p.x, p.y, 5); }
+    { const p = at(0.16, -1.2); place('bus', p.x, p.y); }
+    let stations = 0, lastX = -99;
+    for (let sx = Math.floor(cx - R * 0.6); sx < cx + R * 0.6 && stations < 2; sx++) {
+      if (sx - lastX < 12) continue;
+      const p = planTool(city, 'station', { x: sx, y: railRow + 1 }, { x: sx, y: railRow + 1 });
+      if (p.valid) { applyPlan(city, p); stations++; lastX = sx; }
+    }
+  } else if (!opts.bare) {
+    for (const k of [-0.5, 0.15, 0.7]) { const p = at(0.78, DOWN + k); place('coal', p.x, p.y); }
+    for (let k = 0; k < 6; k++) { const p = at(0.48, k * Math.PI / 3 + 0.3); place('tower', p.x, p.y); }
   }
+
+  // zoning, decided per block from its centre; some blocks stay open land
+  const edgesY = [by, ...rows, by + S], edgesX = [bx, ...cols, bx + S];
+  for (let j = 0; j + 1 < edgesY.length; j++) {
+    for (let i = 0; i + 1 < edgesX.length; i++) {
+      const x0 = edgesX[i] + (i ? 1 : 0), x1 = edgesX[i + 1];
+      const y0 = edgesY[j] + (j ? 1 : 0), y1 = edgesY[j + 1];
+      if (x1 - x0 < 1 || y1 - y0 < 1) continue;
+      const { d, a } = polar((x0 + x1) / 2, (y0 + y1) / 2);
+      const h = hash2(i, j, seed);
+      let tool: Tool;
+      if (mode === 'res-only') tool = 'res';
+      else if (d < 0.3) tool = 'com';
+      else if (d > 0.4 && Math.abs(((a - DOWN + Math.PI) % (2 * Math.PI)) - Math.PI) < 0.8) tool = 'ind';
+      else if ((h & 15) === 0) continue; // an open block now and then
+      else tool = (h & 15) === 1 && d > 0.3 ? 'com' : 'res';
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          if (inside(x, y) && city.overlay[city.idx(x, y)] <= Overlay.Tree && !city.rail[city.idx(x, y)]) apply(tool, { x, y });
+        }
+      }
+    }
+  }
+  // one power line along a street, to exercise the wire sprites
+  if (!opts.bare && rows.length > 2) {
+    const wy = rows[1];
+    for (let x = bx; x < bx + S; x++) if (city.isRoad(x, wy)) apply('wire', { x, y: wy });
+  }
+
   city.money = savedMoney;
   recomputeRoadDist(city);
   refreshGrid(city);
@@ -151,43 +197,57 @@ export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
   const ticks = (opts.years ?? 0) * 12 * TICKS_PER_MONTH;
   for (let t = 0; t < ticks; t++) tick(city);
 
-  if (opts.showcase) {
-    const force = (gx: number, gy: number, size: number, level: number) => {
-      const x = bx + gx * 4 + 1, y = by + gy * 4 + 1;
-      const zone = city.overlay[city.idx(x, y)];
-      if (zone < Overlay.Res || zone > Overlay.Ind) return;
-      for (let yy = y; yy < y + size; yy++) for (let xx = x; xx < x + size; xx++) {
-        if (city.overlay[city.idx(xx, yy)] !== zone) return;
-      }
-      city.addBuilding(zone as 3 | 4 | 5, size, x, y, level);
-    };
-    force(1, 2, 3, 5); force(2, 3, 2, 5); force(0, 3, 2, 4);
-    force(4, 4, 3, 5); force(5, 5, 2, 5); force(3, 4, 2, 4);
-    force(2, 8, 3, 5); force(4, 8, 2, 5); force(6, 8, 2, 4);
-    // an airport on the first 2x2 group of plain zone blocks, and a port on the first usable shore
-    airport: for (let gy = 0; gy < S / 4 - 1; gy++) {
-      for (let gx = 0; gx < S / 4 - 1; gx++) {
-        const x = bx + gx * 4 + 1, y = by + gy * 4 + 1;
-        let plain = true;
-        for (let yy = y; yy < y + 7 && plain; yy++) {
-          for (let xx = x; xx < x + 7; xx++) {
-            const o = city.overlay[city.idx(xx, yy)];
-            if (o === Overlay.Struct || !city.isFlat(xx, yy)) { plain = false; break; }
-          }
-        }
-        if (!plain) continue;
-        applyPlan(city, planTool(city, 'bulldoze', { x, y }, { x: x + 6, y: y + 6 }));
-        const p = planTool(city, 'airport', { x, y }, { x, y });
-        if (p.valid) { applyPlan(city, p); break airport; }
-      }
-    }
-    outer: for (let y = 0; y < city.size - 3; y++) {
-      for (let x = 0; x < city.size - 3; x++) {
-        const p = planTool(city, 'port', { x, y }, { x, y });
-        if (p.valid) { applyPlan(city, p); break outer; }
-      }
-    }
-    refreshGrid(city);
-  }
+  if (opts.showcase) forceShowcase(city, cx, cy, R, polar);
   return best;
+}
+
+/** Forces a few dense buildings near the centre and an airport and a port on the edges. */
+function forceShowcase(city: City, cx: number, cy: number, R: number, polar: (x: number, y: number) => { d: number; a: number }): void {
+  const square = (zone: number, size: number, x: number, y: number): boolean => {
+    for (let yy = y; yy < y + size; yy++) for (let xx = x; xx < x + size; xx++) {
+      if (!city.inBounds(xx, yy)) return false;
+      const i = city.idx(xx, yy);
+      if (city.overlay[i] !== zone || city.bldId[i]) return false;
+    }
+    return true;
+  };
+  const wanted: [number, number, number, number][] = [[Overlay.Com, 3, 5, 2], [Overlay.Res, 3, 5, 1], [Overlay.Res, 2, 5, 2], [Overlay.Com, 2, 5, 1], [Overlay.Ind, 3, 5, 1], [Overlay.Ind, 2, 4, 1], [Overlay.Res, 2, 4, 2]];
+  for (const [zone, size, level, count] of wanted) {
+    let done = 0;
+    const cands: { x: number; y: number; d: number }[] = [];
+    for (let y = Math.floor(cy - R); y < cy + R && done < count; y++) {
+      for (let x = Math.floor(cx - R); x < cx + R; x++) {
+        if (square(zone, size, x, y)) cands.push({ x, y, d: polar(x + size / 2, y + size / 2).d });
+      }
+    }
+    cands.sort((p, q) => p.d - q.d);
+    for (const c of cands) {
+      if (done >= count) break;
+      if (!square(zone, size, c.x, c.y)) continue;
+      city.addBuilding(zone as 3 | 4 | 5, size, c.x, c.y, level);
+      done++;
+    }
+  }
+  city.money += 1e6;
+  outer: for (let y = Math.floor(cy - R); y < cy + R; y++) {
+    for (let x = Math.floor(cx - R); x < cx + R; x++) {
+      if (polar(x + 2, y + 2).d < 0.62) continue;
+      let ok = true;
+      for (let yy = y; yy < y + 4 && ok; yy++) for (let xx = x; xx < x + 4; xx++) {
+        if (!city.inBounds(xx, yy) || city.overlay[city.idx(xx, yy)] === Overlay.Struct || city.overlay[city.idx(xx, yy)] === Overlay.Road || !city.isFlat(xx, yy)) { ok = false; break; }
+      }
+      if (!ok) continue;
+      applyPlan(city, planTool(city, 'bulldoze', { x, y }, { x: x + 3, y: y + 3 }));
+      const p = planTool(city, 'airport', { x, y }, { x, y });
+      if (p.valid) { applyPlan(city, p); break outer; }
+    }
+  }
+  outer2: for (let y = 0; y < city.size - 3; y++) {
+    for (let x = 0; x < city.size - 3; x++) {
+      const p = planTool(city, 'port', { x, y }, { x, y });
+      if (p.valid) { applyPlan(city, p); break outer2; }
+    }
+  }
+  city.money -= 1e6;
+  refreshGrid(city);
 }

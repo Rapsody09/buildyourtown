@@ -341,7 +341,8 @@ export function recomputePower(city: City): void {
   const supply: number[] = [];
   const sources: number[] = [];
 
-  // conductive neighbours; a lone road tile in between does not break the link
+  // conductive neighbours; a lone road, highway or railway tile in between does not break the link
+  const crossable = (j: number) => overlay[j] === Overlay.Road || overlay[j] === Overlay.Highway || (overlay[j] === Overlay.None && city.rail[j] === 1);
   const neighbours = (i: number, out: number[]) => {
     out.length = 0;
     const x = i % size;
@@ -350,7 +351,7 @@ export function recomputePower(city: City): void {
       if (d === 0) continue;
       const j = i + d;
       if (city.conducts(j)) { out.push(j); continue; }
-      if (overlay[j] !== Overlay.Road) continue;
+      if (!crossable(j)) continue;
       const jx = j % size;
       if ((d === -1 && jx === 0) || (d === 1 && jx === size - 1) || (d === -size && j < size) || (d === size && j + size >= count)) continue;
       const k = j + d;

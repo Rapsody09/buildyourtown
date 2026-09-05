@@ -113,6 +113,7 @@ const D: Record<string, [string, string]> = {
   'tool.ind': ['Industriel', 'Industrial'],
   'tool.road': ['Route', 'Road'],
   'tool.wire': ['Ligne HT', 'Power line'],
+  'tool.wire.desc': ['Glisser pour tracer. Relie centrales et quartiers, passe au-dessus des routes.', 'Drag to lay. Links plants and districts, runs over roads.'],
   'tool.bulldoze': ['Bulldozer', 'Bulldoze'],
   'tool.query': ['Infos', 'Query'],
   'tool.rail': ['Voie ferrée', 'Railway'],

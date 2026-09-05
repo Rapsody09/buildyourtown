@@ -1183,6 +1183,48 @@ function drawBigBuilding(ctx: Ctx, zone: ZoneType, size: number, level: number, 
   s.render();
 }
 
+// ---- icon-only sprites ----------------------------------------------------
+
+/** A small yellow bulldozer, for the toolbar: low and long, blade at the front. */
+function drawBulldozer(ctx: Ctx): void {
+  drawGrass(ctx, 2);
+  const s = new Scene(ctx, 11);
+  // tracks
+  s.box(0.1, 0.26, 0.8, 0.39, 5, '#3a3d42', '#5a5f66');
+  s.box(0.1, 0.61, 0.8, 0.74, 5, '#3a3d42', '#5a5f66');
+  s.custom(3, (c) => {
+    c.strokeStyle = '#8a8f96';
+    c.lineWidth = 1;
+    for (const v of [0.325, 0.675]) {
+      for (let u = 0.16; u < 0.8; u += 0.09) {
+        const [x, y] = P(u, v, 2.5);
+        c.beginPath(); c.moveTo(x - 1.5, y); c.lineTo(x + 1.5, y); c.stroke();
+      }
+    }
+  });
+  // low chassis, engine hood at the front, small cab at the back
+  s.box(0.18, 0.32, 0.78, 0.68, 6, '#f2b632', '#e0a020', { z0: 5 });
+  s.box(0.5, 0.37, 0.76, 0.63, 5, '#e0a020', '#f2b632', { z0: 11 });
+  s.box(0.22, 0.36, 0.48, 0.64, 9, '#f2b632', '#c98a12', { z0: 11 });
+  s.custom(50, (c) => {
+    poly(c, [P(0.25, 0.64, 13), P(0.45, 0.64, 13), P(0.45, 0.64, 19), P(0.25, 0.64, 19)], '#284260');
+    poly(c, [P(0.48, 0.39, 13), P(0.48, 0.61, 13), P(0.48, 0.61, 19), P(0.48, 0.39, 19)], '#1d3248');
+  });
+  s.cylinder(0.56, 0.42, 0.02, 6, '#333', '#222', { z0: 16 });
+  // blade, slightly curved look with a lighter top edge, and its two arms
+  s.box(0.82, 0.14, 0.9, 0.86, 9, '#9aa0a6', '#d0d4d8');
+  s.custom(40, (c) => {
+    c.strokeStyle = '#7a7f86';
+    c.lineWidth = 2;
+    for (const v of [0.3, 0.7]) {
+      const [x0, y0] = P(0.72, v, 9);
+      const [x1, y1] = P(0.84, v, 6);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    }
+  });
+  s.render();
+}
+
 // ---- structures -----------------------------------------------------------
 
 const STRUCT_LOT: Record<string, string> = {
@@ -1258,11 +1300,22 @@ function drawStruct(ctx: Ctx, type: StructType): void {
       });
       break;
     case 'tower':
-      for (const [u, v] of [[0.55, 0.55], [1.45, 0.55], [0.55, 1.45], [1.45, 1.45]]) {
-        s.cylinder(u, v, 0.07, 32, '#7a7f86', '#555');
+      // legs well inside the tank's footprint, and a cross brace between them
+      for (const [u, v] of [[0.7, 0.7], [1.3, 0.7], [0.7, 1.3], [1.3, 1.3]]) {
+        s.cylinder(u, v, 0.08, 36, '#7a7f86', '#555');
       }
-      s.cylinder(1.0, 1.0, 0.72, 20, '#8fc0ee', '#a9d0f5', { z0: 30 });
-      s.cylinder(1.0, 1.0, 0.72, 10, '#5c8fc4', '#5c8fc4', { z0: 50, rTop: 0.06 });
+      s.custom(5, (c) => {
+        c.strokeStyle = '#6a6f76';
+        c.lineWidth = 1.5;
+        const pairs: [number, number, number, number][] = [[0.7, 1.3, 1.3, 1.3], [1.3, 0.7, 1.3, 1.3]];
+        for (const [u0, v0, u1, v1] of pairs) {
+          const [ax, ay] = P(u0, v0, 6), [bx, by] = P(u1, v1, 24);
+          const [cx2, cy2] = P(u0, v0, 24), [dx, dy] = P(u1, v1, 6);
+          c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.moveTo(cx2, cy2); c.lineTo(dx, dy); c.stroke();
+        }
+      });
+      s.cylinder(1.0, 1.0, 0.62, 22, '#8fc0ee', '#a9d0f5', { z0: 34 });
+      s.cylinder(1.0, 1.0, 0.62, 10, '#5c8fc4', '#5c8fc4', { z0: 56, rTop: 0.06 });
       break;
     case 'police':
       s.box(0.4, 0.4, 2.6, 1.9, 22, '#8c9bb5', '#3e5a8a', { windows: true });
@@ -1504,6 +1557,7 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'wire': SLOPE = parseSlope(parts[2]); return drawWire(ctx, num(1));
     case 'zone': return drawEmptyZone(ctx, num(1) as ZoneType);
     case 'rubble': SLOPE = parseSlope(parts[1]); return drawRubble(ctx, num(2));
+    case 'icon': return drawBulldozer(ctx);
     case 'fire': return drawFlames(ctx, num(1));
     case 'bld': return drawBuilding(ctx, num(1) as ZoneType, num(2), num(3));
     case 'big': return drawBigBuilding(ctx, num(1) as ZoneType, num(2), num(3), num(4));

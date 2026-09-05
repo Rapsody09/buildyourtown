@@ -17,7 +17,7 @@ export interface Preview {
   color: string;
 }
 
-export const ZOOM_LEVELS = [0.25, 0.5, 1, 2];
+export const ZOOM_LEVELS = [0.25, 0.5, 1, 1.5, 2];
 const CAR_COLORS = ['#e8e8e8', '#d94141', '#3a6fd8', '#f2c14e', '#2f2f2f', '#8ccf6a'];
 
 export class Renderer {
@@ -276,44 +276,48 @@ export class Renderer {
     return city.inBounds(x, y) && city.conducts(city.idx(x, y));
   }
 
+  /** Problem badges on zones: a dark disc so the icon reads on any ground. */
   private marker(cx: number, cy: number, scale: number, kind: 'dot' | 'bolt' | 'drop'): void {
     const { ctx } = this;
-    const r = Math.max(2, 3 * scale);
+    const r = Math.max(5, 8 * scale);
+    ctx.fillStyle = 'rgba(15,20,34,0.72)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, 1.2 * scale);
     if (kind === 'dot') {
-      ctx.fillStyle = '#e0392b';
+      ctx.fillStyle = '#ff5a48';
       ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
       ctx.fill();
       return;
     }
     if (kind === 'bolt') {
-      const s = Math.max(3, 5 * scale);
+      const s = r * 0.5;
       ctx.fillStyle = '#ffd23f';
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(cx + s * 0.3, cy - s * 1.6);
-      ctx.lineTo(cx - s * 0.5, cy + s * 0.1);
+      ctx.moveTo(cx + s * 0.35, cy - s * 1.5);
+      ctx.lineTo(cx - s * 0.55, cy + s * 0.1);
       ctx.lineTo(cx + s * 0.05, cy + s * 0.1);
-      ctx.lineTo(cx - s * 0.3, cy + s * 1.6);
+      ctx.lineTo(cx - s * 0.35, cy + s * 1.5);
       ctx.lineTo(cx + s * 0.6, cy - s * 0.2);
       ctx.lineTo(cx + s * 0.05, cy - s * 0.2);
       ctx.closePath();
       ctx.fill();
-      ctx.stroke();
       return;
     }
-    const s = Math.max(2.5, 4 * scale);
-    ctx.fillStyle = '#4da3ff';
-    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = 1;
+    const s = r * 0.55;
+    ctx.fillStyle = '#4fc3ff';
     ctx.beginPath();
-    ctx.moveTo(cx, cy - s * 1.4);
-    ctx.quadraticCurveTo(cx + s, cy, cx, cy + s * 0.6);
-    ctx.quadraticCurveTo(cx - s, cy, cx, cy - s * 1.4);
+    ctx.moveTo(cx, cy - s * 1.3);
+    ctx.quadraticCurveTo(cx + s * 1.1, cy + s * 0.1, cx, cy + s * 0.9);
+    ctx.quadraticCurveTo(cx - s * 1.1, cy + s * 0.1, cx, cy - s * 1.3);
     ctx.closePath();
     ctx.fill();
-    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(cx - s * 0.3, cy + s * 0.15, s * 0.22, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   private dataColor(city: City, i: number): string | null {

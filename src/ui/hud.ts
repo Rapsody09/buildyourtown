@@ -68,7 +68,6 @@ function toolbarEntries(): ToolbarEntry[] {
     { tool: 'com', label: t('tool.com'), key: 'C', cost: t('perTile', { n: 30 }), icon: () => renderIcon(['bld:4:2:0'], 1, ICON) },
     { tool: 'ind', label: t('tool.ind'), key: 'I', cost: t('perTile', { n: 30 }), icon: () => renderIcon(['bld:5:3:1'], 1, ICON) },
     { tool: 'road', label: t('tool.road'), key: 'T', cost: t('perTile', { n: 10 }), icon: () => renderIcon(['road:10:0000'], 1, ICON) },
-    { tool: 'wire', label: t('tool.wire'), key: 'L', cost: t('perTile', { n: 5 }), icon: () => renderIcon(['grass:0000:0', 'wire:10:0000'], 1, ICON) },
     {
       group: t('group.transport'), icon: structIcon('station'), items: [
         { tool: 'rail', name: t('tool.rail'), meta: t('tool.rail.meta'), desc: t('tool.rail.desc'), icon: () => renderIcon(['grass:0000:0', 'rail:10:0000'], 1, ICON) },
@@ -76,7 +75,12 @@ function toolbarEntries(): ToolbarEntry[] {
         ...structItems(['station', 'bus', 'port', 'airport']),
       ],
     },
-    { group: t('group.energy'), icon: structIcon('coal'), items: structItems(['wind', 'coal', 'gas', 'nuclear']) },
+    {
+      group: t('group.energy'), icon: structIcon('coal'), items: [
+        { tool: 'wire', name: `${t('tool.wire')} (L)`, meta: t('perTile', { n: 5 }), desc: t('tool.wire.desc'), icon: () => renderIcon(['grass:0000:0', 'wire:10:0000'], 1, ICON) },
+        ...structItems(['wind', 'coal', 'gas', 'nuclear']),
+      ],
+    },
     { group: t('group.water'), icon: structIcon('tower'), items: structItems(['pump', 'tower']) },
     { group: t('group.services'), icon: structIcon('police'), items: structItems(['police', 'fire', 'school', 'hospital']) },
     { group: t('group.parks'), icon: structIcon('bigpark'), items: structItems(['park', 'bigpark']) },
@@ -88,7 +92,7 @@ function toolbarEntries(): ToolbarEntry[] {
       ],
     },
     { group: t('group.rewards'), icon: structIcon('cityhall'), items: structItems(['cityhall', 'statue', 'mansion', 'arcology']) },
-    { tool: 'bulldoze', label: t('tool.bulldoze'), key: 'B', cost: t('perTile', { n: 1 }), icon: () => renderIcon(['rubble:0000:0'], 1, ICON) },
+    { tool: 'bulldoze', label: t('tool.bulldoze'), key: 'B', cost: t('perTile', { n: 1 }), icon: () => renderIcon(['icon:bulldozer'], 1, ICON) },
     { tool: 'query', label: t('tool.query'), key: 'Q', icon: queryIcon },
   ];
 }
@@ -433,18 +437,24 @@ export class Hud {
   // ---- welcome screen ----------------------------------------------------
 
   private buildWelcome(): void {
-    const diff = $('welcome-difficulty');
-    for (const key of Object.keys(DIFFICULTIES) as Difficulty[]) {
-      const btn = h('button', { type: 'button', class: 'card diff' },
-        h('b', { text: t(`diff.${key}`) }), h('span', { text: t('diff.money', { amt: fmtMoney(DIFFICULTIES[key].money) }) }),
-        h('span', { class: 'desc', text: t(`diff.${key}.desc`) }));
-      btn.addEventListener('click', () => {
-        this.welcomeDifficulty = key;
-        for (const b of diff.children) b.classList.toggle('selected', b === btn);
-      });
-      if (key === 'facile') btn.classList.add('selected');
-      diff.append(btn);
+    // difficulty: a slider with three stops; the long description stays in the tooltip
+    const keys = Object.keys(DIFFICULTIES) as Difficulty[];
+    const labels = $('welcome-difficulty');
+    const slider = $<HTMLInputElement>('welcome-diff');
+    for (const key of keys) {
+      const el = h('span', { class: 'diff-label', title: t(`diff.${key}.desc`) },
+        h('b', { text: t(`diff.${key}`) }), h('small', { text: t('diff.money', { amt: fmtMoney(DIFFICULTIES[key].money) }) }));
+      el.addEventListener('click', () => { slider.value = String(keys.indexOf(key)); slider.dispatchEvent(new Event('input')); });
+      labels.append(el);
     }
+    const sync = () => {
+      const idx = Number(slider.value);
+      this.welcomeDifficulty = keys[idx];
+      slider.title = t(`diff.${keys[idx]}.desc`);
+      for (const [i, el] of Array.from(labels.children).entries()) el.classList.toggle('selected', i === idx);
+    };
+    slider.addEventListener('input', sync);
+    sync();
     for (const b of document.querySelectorAll<HTMLButtonElement>('#welcome-lang button')) {
       b.classList.toggle('selected', b.dataset.lang === lang);
       b.addEventListener('click', () => { if (b.dataset.lang !== lang) this.handlers.onLang(b.dataset.lang as Lang); });

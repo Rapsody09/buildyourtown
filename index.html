@@ -91,11 +91,17 @@
         <div id="welcome-lang" class="langs"><span class="lbl" data-i18n="welcome.lang">Langue</span>
           <button type="button" data-lang="fr"><span class="flag fr"></span>Français</button><button type="button" data-lang="en"><span class="flag en"></span>English</button>
         </div>
-        <span class="credits"><span data-i18n="credits">Réalisé par Erwann avec Claude Fable 5.1</span> · <a class="link-linkedin" href="https://www.linkedin.com/" target="_blank" rel="noopener">LinkedIn</a> · <a class="link-github" href="https://github.com/" target="_blank" rel="noopener">GitHub</a></span>
+        <span class="credits"><span data-i18n="credits">Réalisé par Erwann avec Claude Fable 5.1</span> · <a class="link-linkedin" href="https://www.linkedin.com/in/erwann-maignan/" target="_blank" rel="noopener">LinkedIn</a> · <a class="link-github" href="https://github.com/Rapsody09/buildyourtown" target="_blank" rel="noopener">GitHub</a></span>
       </div>
       <div class="fields">
         <label class="field"><span class="lbl" data-i18n="welcome.name">Nom de la ville</span><input id="welcome-name" type="text" maxlength="40" data-i18n-ph="welcome.namePh" autocomplete="off"></label>
-        <div class="field"><span class="lbl" data-i18n="welcome.difficulty">Difficulté</span><div id="welcome-difficulty" class="cards"></div></div>
+        <div class="field">
+          <span class="lbl" data-i18n="welcome.difficulty">Difficulté</span>
+          <div class="diff-slider">
+            <input id="welcome-diff" type="range" min="0" max="2" step="1" value="0">
+            <div id="welcome-difficulty" class="diff-labels"></div>
+          </div>
+        </div>
         <div class="field">
           <span class="lbl" data-i18n="welcome.map">Carte</span>
           <div id="welcome-maps" class="cards maps"></div>
@@ -111,7 +117,7 @@
 
   <footer id="statusbar">
     <span class="left"><span id="version" class="version"></span><span id="status"></span></span>
-    <span class="right"><span id="legend"></span><span id="preview" hidden></span><span class="credits"><span data-i18n="credits">Réalisé par Erwann avec Claude Fable 5.1</span> · <a class="link-linkedin" href="https://www.linkedin.com/" target="_blank" rel="noopener">LinkedIn</a> · <a class="link-github" href="https://github.com/" target="_blank" rel="noopener">GitHub</a></span></span>
+    <span class="right"><span id="legend"></span><span id="preview" hidden></span><span class="credits"><span data-i18n="credits">Réalisé par Erwann avec Claude Fable 5.1</span> · <a class="link-linkedin" href="https://www.linkedin.com/in/erwann-maignan/" target="_blank" rel="noopener">LinkedIn</a> · <a class="link-github" href="https://github.com/Rapsody09/buildyourtown" target="_blank" rel="noopener">GitHub</a></span></span>
   </footer>
 
   <script type="module" src="/src/main.ts"></script>
