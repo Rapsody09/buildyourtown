@@ -136,6 +136,7 @@ function tileCost(city: City, tool: Tool, i: number): number {
   if (tool === 'road') return water ? COST.bridge : COST.road;
   if (tool === 'rail') return water ? COST.railBridge : COST.rail;
   if (tool === 'highway') return water ? COST.highwayBridge : COST.highway;
+  if (tool === 'wire') return water ? COST.wireWater : COST.wire;
   return unitCost(tool);
 }
 
@@ -156,8 +157,9 @@ function canApply(city: City, tool: Tool, i: number): boolean {
   if (tool === 'bulldoze') return o !== Overlay.None || city.wire[i] === 1 || city.rail[i] === 1;
   if (o === Overlay.Rubble || city.flood[i]) return false;
   if (city.terrain[i] !== Terrain.Land) {
-    // bridges: roads and highways on open water, rail on open water or over a road bridge
+    // bridges: roads and highways on open water, rail on open water or over a road bridge, pylons in water
     if (tool === 'rail') return city.rail[i] === 0 && (o === Overlay.None || o === Overlay.Road);
+    if (tool === 'wire') return city.wire[i] === 0 && o === Overlay.None;
     return (tool === 'road' || tool === 'highway') && o === Overlay.None;
   }
   if (tool === 'wire') return city.wire[i] === 0 && (o === Overlay.None || o === Overlay.Tree || o === Overlay.Road);

@@ -77,14 +77,18 @@ trois cases, du courant, et des emplois ou des habitants à portée de trajet.
 
 Clic droit, molette-clic, espace + glisser ou flèches : déplacer la vue.
 Molette : zoom. La barre de gauche donne accès à tous les outils, avec le
-nom, le coût et la touche au survol. Les groupes Transport, Énergie, Eau,
-Services, Parcs, Terrain et Récompenses ouvrent la liste de leurs bâtiments.
+nom, le coût et la touche au survol. Le groupe Transport réunit routes, rails,
+autoroutes et équipements ; Énergie, Eau et Services ouvrent la liste de leurs
+bâtiments ; Parcs contient aussi les monuments à débloquer ; le groupe
+Bulldozer réunit la démolition et les outils de relief. La loupe, en tête de
+barre, est le mode par défaut : un clic renseigne sur une case.
 
 **Sur mobile ou tablette**, la barre d'outils passe en bas de l'écran et les
-panneaux s'ouvrent en volets. Un doigt déplace la vue quand aucun outil n'est
-actif, et trace ou zone quand un outil l'est ; deux doigts déplacent et zooment
-(pincement). Pour poser un bâtiment, un premier appui montre l'aperçu et un
-second appui au même endroit confirme.
+panneaux s'ouvrent en volets. Un doigt déplace la vue ; deux doigts zooment.
+Un appui pose une case avec l'outil choisi (pour un bâtiment, un premier appui
+montre l'aperçu et un second au même endroit confirme) ; un appui long suivi
+d'un glissement trace une route, une zone ou une ligne. La mini-carte en bas à
+droite montre où l'on se trouve : appuyer dessus déplace la vue.
 
 ### Ce qui fait vivre la ville
 

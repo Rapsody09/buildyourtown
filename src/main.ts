@@ -52,12 +52,16 @@ if (langParam === 'fr' || langParam === 'en') setLang(langParam);
 let city: City = City.generate();
 let currentKey: string | null = null;
 let demoArea: DemoArea | null = null;
-let tool: Tool = 'none';
+/** the magnifier is the neutral mode: a click or tap tells about a tile, dragging pans */
+const NEUTRAL_TOOL: Tool = 'query';
+let tool: Tool = NEUTRAL_TOOL;
 let speed = 1;
 let hover: Pt | null = null;
 let dragFrom: Pt | null = null;
 let plan: ToolPlan | null = null;
 let dirty = true;
+/** two-finger gesture in progress: no animation frames, the camera commits are drawn at once */
+let gesturing = false;
 let unsaved = false;
 /** on touch screens a click tool previews on the first tap and places on the second tap of the same tile */
 let touchPending: Pt | null = null;
@@ -94,6 +98,7 @@ const hud = new Hud({
   onDisaster: (kind) => triggerDisaster(kind),
   onRandomDisasters: (enabled) => { city.randomDisasters = enabled; unsaved = true; },
   onOrdinance: (key, enabled) => { city.ordinances[key] = enabled; unsaved = true; hud.update(city); },
+  onMinimap: (x, y) => { renderer.centerOnTile(x, y); dirty = true; },
   onLang: (l: Lang) => { autosave(); setLang(l); location.reload(); },
   lockReason: (tl) => {
     if (!isStructTool(tl)) return null;
@@ -112,7 +117,7 @@ function triggerDisaster(kind: DisasterKind): void {
 }
 
 function setTool(tl: Tool): void {
-  tool = tool === tl ? 'none' : tl;
+  tool = tool === tl ? NEUTRAL_TOOL : tl;
   touchPending = null;
   hud.setTool(tool);
   plan = null;
@@ -257,7 +262,7 @@ function queryTile(p: Pt): void {
 }
 
 attachInput(canvas, renderer, {
-  toolActive: () => tool !== 'none',
+  toolActive: () => tool !== 'none' && tool !== 'query',
   onHover: (p) => {
     hover = p;
     if (p && isClickTool(tool)) clickPreview(p);
@@ -300,10 +305,11 @@ attachInput(canvas, renderer, {
     hud.setPreview(null);
     dirty = true;
   },
-  onCameraChange: () => { dirty = true; },
+  onCameraChange: () => { dirty = true; if (gesturing) render(performance.now()); },
+  onGesture: (active) => { gesturing = active; if (!active) dirty = true; },
   onKey: (key) => {
     const k = key.toLowerCase();
-    if (k === 'escape') { hud.closePanels(); setTool('none'); return true; }
+    if (k === 'escape') { hud.closePanels(); if (tool !== NEUTRAL_TOOL) setTool(NEUTRAL_TOOL); return true; }
     if (k === ' ') return false;
     if (k in TOOL_KEYS) { setTool(TOOL_KEYS[k]); return true; }
     if (k === 'p') { setSpeed(speed === 0 ? 1 : 0); return true; }
@@ -344,16 +350,19 @@ function frame(now: number): void {
 
   // cars, water, fire and disasters keep moving while the simulation runs
   if (city.shakeMs > 0) { city.shakeMs = Math.max(0, city.shakeMs - dt); dirty = true; }
-  if ((speed > 0 || city.actors.length || city.burning) && now - lastAnim > 60) { dirty = true; lastAnim = now; }
+  if (!gesturing && (speed > 0 || city.actors.length || city.burning) && now - lastAnim > 60) { dirty = true; lastAnim = now; }
 
-  if (dirty) {
-    let preview = null;
-    if (plan && isStructTool(tool)) preview = { tiles: plan.footprint ?? [], color: plan.valid ? '#3fb34f' : '#e0392b' };
-    else if (plan && tool in TOOL_COLORS) preview = { tiles: plan.tiles, color: plan.valid ? TOOL_COLORS[tool]! : '#e0392b' };
-    renderer.draw(city, hover, preview, now);
-    dirty = false;
-  }
+  if (dirty && !gesturing) render(now);
   requestAnimationFrame(frame);
+}
+
+function render(now: number): void {
+  let preview = null;
+  if (plan && isStructTool(tool)) preview = { tiles: plan.footprint ?? [], color: plan.valid ? '#3fb34f' : '#e0392b' };
+  else if (plan && tool in TOOL_COLORS) preview = { tiles: plan.tiles, color: plan.valid ? TOOL_COLORS[tool]! : '#e0392b' };
+  renderer.draw(city, hover, preview, now);
+  hud.drawMinimap(city, renderer, now);
+  dirty = false;
 }
 
 window.addEventListener('resize', () => { renderer.resize(); dirty = true; });

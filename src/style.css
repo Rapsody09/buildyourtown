@@ -168,6 +168,21 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   overflow: hidden;
 }
 #toolbar button.tool .ico canvas { display: block; }
+#toolbar button.active .ico { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.85); }
+/* active build tool on touch screens: what it expects, and a way back to the magnifier */
+#tool-pill { display: none; }
+/* minimap: bottom right, above the status bar */
+#minimap {
+  position: fixed; right: 12px; bottom: 44px; z-index: 4;
+  width: 224px; height: 112px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(12, 16, 26, 0.88);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  cursor: pointer;
+}
+#minimap canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; border-radius: 6px; }
 #flyout .ico { width: 44px; height: 44px; }
 #flyout .ico canvas { display: block; width: 44px; height: 44px; }
 #toolbar button.tool kbd {
@@ -402,6 +417,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   #toolbar button.menu-btn { font-size: 22px; }
   #toolbar button.tool .ico { width: 44px; height: 44px; }
   #toolbar button.tool .ico canvas { width: 44px; height: 44px; }
+  #minimap { right: 6px; bottom: calc(96px + env(safe-area-inset-bottom)); width: 132px; height: 66px; padding: 3px; }
   #toolbar button.tool kbd { display: none; }
   #tooltip { display: none !important; }
 
@@ -424,6 +440,16 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   #statusbar { height: 30px; padding: 0 8px; padding-bottom: env(safe-area-inset-bottom); font-size: 11px; }
   #statusbar .credits, #legend { display: none; }
   #status { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #tool-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 2px 4px 2px 9px; border-radius: 12px;
+    font: inherit; font-weight: 700; color: #1d1405;
+    background: linear-gradient(180deg, #ffcf5c 0%, var(--accent) 100%);
+    border: 0; box-shadow: 0 0 0 1px var(--accent-dark);
+    white-space: nowrap;
+  }
+  #tool-pill .x { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,0.25); color: #fff; font-size: 11px; }
+  #statusbar .left:has(#tool-pill:not([hidden])) #status { display: none; }
 
   /* welcome: one column, scrollable */
   .modal { align-items: flex-start; overflow-y: auto; padding: 10px 0; }

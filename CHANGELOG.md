@@ -3,6 +3,27 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.0 — 2026-09-05
+
+Le tactile revu de fond en comble, une mini-carte et une barre d'outils plus
+claire.
+
+- Sur téléphone, un doigt déplace toujours la vue, sans à-coups. Un appui bref
+  utilise l'outil sur une case, un appui long puis un glissement trace routes,
+  zones et lignes. Le pincement zoome sans plus faire sauter la vue.
+- La loupe devient le mode par défaut : un appui ou un clic renseigne sur une
+  case. Réappuyer sur l'outil actif y ramène, comme Échap. Sur mobile, une
+  pastille rappelle l'outil de construction en cours avec une croix pour en
+  sortir.
+- Mini-carte en bas à droite avec le cadre de la zone visible ; appuyer dessus
+  déplace la vue.
+- Barre d'outils réorganisée en dix boutons : la route ouvre tout le groupe
+  Transport, les monuments rejoignent les Parcs, le relief rejoint le
+  Bulldozer. Vignettes plus grandes et plus lisibles, éolienne et statue
+  redessinées, maisons aux couleurs plus gaies.
+- Les lignes haute tension traversent l'eau sur des pylônes, au lieu de
+  laisser un trou.
+
 ## 0.2.0 — 2026-09-05
 
 Le jeu se joue sur téléphone et tablette, et les rues prennent vie.

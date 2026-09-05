@@ -47,6 +47,8 @@ export const COST = {
   highway: 50,
   highwayBridge: 250,
   wire: 5,
+  /** pylon standing in water */
+  wireWater: 15,
   zone: 30,
   bulldoze: 1,
   /** per corner moved by one level */

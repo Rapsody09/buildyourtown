@@ -674,12 +674,12 @@ function drawBuilding(ctx: Ctx, zone: ZoneType, level: number, variant: number):
 
 type Pal = [string, string];
 const R_HOUSE: Pal[] = [
-  ['#fbf6ec', '#d9434e'], ['#fff5b8', '#f28c28'], ['#dcebf8', '#4f6d8f'], ['#fbd9dc', '#b03a48'],
-  ['#d8f2dc', '#3e8f5a'], ['#ece2fb', '#6b4c8a'], ['#ffffff', '#e4572e'], ['#cfeeff', '#2f80b9'],
+  ['#fff3a0', '#ff5d5d'], ['#ffd9a8', '#ff8c2e'], ['#bfe2ff', '#2f8fdb'], ['#ffc9d9', '#e8467c'],
+  ['#bff2d0', '#2fb56b'], ['#dcc8ff', '#8a5be0'], ['#fff8e0', '#ff7a3d'], ['#b8ecf2', '#20a6b8'],
 ];
 const R_APT: Pal[] = [
-  ['#f7f3ea', '#d9434e'], ['#e3f1f7', '#3f8f8f'], ['#f26d5b', '#34495e'], ['#fff2c2', '#e4572e'],
-  ['#cfe0f0', '#3d6a8a'], ['#f3dbe9', '#8e44ad'], ['#dcefd4', '#4f7a4a'], ['#fafafa', '#2f80b9'],
+  ['#fff0c2', '#ff5d5d'], ['#c9f0f4', '#20a6b8'], ['#ff9a86', '#3a4a6b'], ['#ffe9a8', '#ff7a3d'],
+  ['#bfe2ff', '#2f6fd0'], ['#f5cfe8', '#9b4fc9'], ['#cdeec2', '#3f9a4a'], ['#fff8e0', '#2f8fdb'],
 ];
 const R_TOWER: Pal[] = [['#f2f4f6', '#6f7a8a'], ['#e0e9ee', '#3d6a8a'], ['#fbeee6', '#c0392b'], ['#dfe8dc', '#3f7d5a']];
 const C_SHOP: Pal[] = [
@@ -1239,22 +1239,34 @@ function drawStruct(ctx: Ctx, type: StructType): void {
   const s = new Scene(ctx, hash2(n, type.length, 5));
   switch (type) {
     case 'wind':
-      s.box(0.46, 0.46, 0.54, 0.54, 40, '#d9dde2', '#bfc4ca');
-      s.custom(50, (c) => {
+      // tapered mast, nacelle, and a three-blade rotor drawn as tapered blades
+      s.disc(0.5, 0.5, 0.16, '#b9bec6', 0, -1);
+      s.cylinder(0.5, 0.5, 0.075, 40, '#e8ebee', '#d3d7dc', { rTop: 0.045 });
+      s.box(0.45, 0.47, 0.58, 0.53, 4, '#cfd4da', '#e6e9ec', { z0: 40 });
+      s.custom(60, (c) => {
         const [x, y] = P(0.5, 0.5, 42);
-        c.strokeStyle = '#f4f6f8';
-        c.lineWidth = 2;
+        c.strokeStyle = 'rgba(40,50,70,0.5)';
+        c.lineWidth = 0.6;
         for (let k = 0; k < 3; k++) {
-          const a = -Math.PI / 2 + k * (Math.PI * 2 / 3) + 0.4;
+          const a = -Math.PI / 2 + k * (Math.PI * 2 / 3) + 0.35;
+          const L = 17;
+          const tx = x + Math.cos(a) * L, ty = y + Math.sin(a) * L;
+          const px = -Math.sin(a), py = Math.cos(a);
           c.beginPath();
-          c.moveTo(x, y);
-          c.lineTo(x + Math.cos(a) * 14, y + Math.sin(a) * 14);
+          c.moveTo(x + px * 1.9, y + py * 1.9);
+          c.lineTo(tx + px * 0.5, ty + py * 0.5);
+          c.lineTo(tx - px * 0.5, ty - py * 0.5);
+          c.lineTo(x - px * 1.9, y - py * 1.9);
+          c.closePath();
+          c.fillStyle = '#f7f8fa';
+          c.fill();
           c.stroke();
         }
-        c.fillStyle = '#9aa0a6';
+        c.fillStyle = '#d3d7dc';
         c.beginPath();
-        c.arc(x, y, 2, 0, Math.PI * 2);
+        c.arc(x, y, 2.6, 0, Math.PI * 2);
         c.fill();
+        c.stroke();
       });
       break;
     case 'coal':
@@ -1435,14 +1447,24 @@ function drawStruct(ctx: Ctx, type: StructType): void {
       s.antenna(1.5, 1.4, 48, 10, '#ddd');
       break;
     case 'statue':
-      s.cylinder(0.5, 0.5, 0.16, 10, '#b4b9c0', '#d0d4d8');
-      s.cylinder(0.5, 0.5, 0.06, 14, '#5fb3a1', '#6cc4b1', { z0: 10 });
-      s.custom(50, (c) => {
-        const [x, y] = P(0.5, 0.5, 26);
-        c.fillStyle = '#7c8c6a';
+      // paved square, stepped plinth, white column and a golden figure
+      s.disc(0.5, 0.5, 0.46, '#d3d7dd', 0, -1);
+      for (const [u, v] of [[0.14, 0.14], [0.86, 0.14], [0.14, 0.86], [0.86, 0.86]] as [number, number][]) s.disc(u, v, 0.09, '#3fa845', 0, -1);
+      s.box(0.28, 0.28, 0.72, 0.72, 5, '#c4c9d1', '#e6e9ed');
+      s.box(0.36, 0.36, 0.64, 0.64, 5, '#b7bcc5', '#e0e3e8', { z0: 5 });
+      s.cylinder(0.5, 0.5, 0.075, 20, '#eceef1', '#ffffff', { z0: 10 });
+      s.cylinder(0.5, 0.5, 0.12, 2.5, '#d6d9de', '#f4f5f7', { z0: 30 });
+      s.cylinder(0.5, 0.5, 0.05, 9, '#dba82e', '#f2c94c', { z0: 32.5 });
+      s.box(0.5, 0.46, 0.53, 0.5, 7, '#dba82e', '#f2c94c', { z0: 38 });
+      s.custom(60, (c) => {
+        const [x, y] = P(0.5, 0.5, 44);
+        c.fillStyle = '#f2c94c';
+        c.strokeStyle = 'rgba(0,0,0,0.35)';
+        c.lineWidth = 0.8;
         c.beginPath();
-        c.arc(x, y - 2, 2.5, 0, Math.PI * 2);
+        c.arc(x, y, 2.6, 0, Math.PI * 2);
         c.fill();
+        c.stroke();
       });
       break;
     case 'mansion':
@@ -1652,16 +1674,44 @@ const iconCache = new SpriteCache();
  * Small square thumbnail of one or more sprites stacked (ground first), for
  * toolbar buttons. Tall sprites are bottom-aligned and cropped at the top.
  */
-export function renderIcon(keys: string[], n = 1, size = 44): HTMLCanvasElement {
+export function renderIcon(keys: string[], n = 1, size = 44, zoom = 1): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = size;
   c.height = size;
   const ctx = c.getContext('2d')!;
   const visibleH = n * TILE_H + (n === 1 ? 62 : 80);
-  const scale = Math.min(size / (n * TILE_W), size / visibleH);
-  for (const key of keys) {
-    const spr = iconCache.get(key, scale, n);
-    ctx.drawImage(spr, (size - spr.width) / 2, size - spr.height);
+  let scale = Math.min(size / (n * TILE_W), size / visibleH) * zoom;
+  if (zoom === 1) {
+    for (const key of keys) {
+      const spr = iconCache.get(key, scale, n);
+      ctx.drawImage(spr, (size - spr.width) / 2, size - spr.height);
+    }
+    return c;
   }
+  // zoomed in: the part that matters runs from the top of what is drawn down to just
+  // below the footprint centre; it is scaled to fit the square and centred, the front
+  // corner of the ground is allowed to spill out
+  const compose = (sc: number) => {
+    const sprs = keys.map((k) => iconCache.get(k, sc, n));
+    const w = Math.max(...sprs.map((sp) => sp.width)), h = Math.max(...sprs.map((sp) => sp.height));
+    const tmp = document.createElement('canvas');
+    tmp.width = w;
+    tmp.height = h;
+    const tctx = tmp.getContext('2d')!;
+    for (const sp of sprs) tctx.drawImage(sp, (w - sp.width) / 2, h - sp.height);
+    const d = tctx.getImageData(0, 0, w, h).data;
+    let top = h;
+    for (let y = 0; y < h && top === h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 8) { top = y; break; }
+    const bottom = (MAX_H + n * TILE_H / 2 + 0.3 * n * TILE_H) * sc;
+    return { tmp, top, bottom };
+  };
+  let { tmp, top, bottom } = compose(scale);
+  const maxH = size - 4;
+  if (bottom - top > maxH) {
+    scale *= maxH / (bottom - top);
+    ({ tmp, top, bottom } = compose(scale));
+  }
+  const y = Math.round((size - (bottom - top)) / 2 - top);
+  ctx.drawImage(tmp, Math.round((size - tmp.width) / 2), y);
   return c;
 }

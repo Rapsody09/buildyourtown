@@ -1,13 +1,14 @@
 import { budgetExpenses, budgetIncome, type City } from '../game/city';
 import { randomSeed } from '../game/rng';
 import { advice } from '../game/sim';
-import { STRUCTS, structDesc, structName } from '../game/structs';
+import { STRUCTS, isStructTool, structDesc, structName } from '../game/structs';
 import {
   BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, DISASTER_KINDS, MAX_BONDS, ORDINANCES, ORDINANCE_KEYS,
-  type DataMap, type Dept, type Difficulty, type DisasterKind, type Ordinance, type StructType, type Tool,
+  Overlay, Terrain, type DataMap, type Dept, type Difficulty, type DisasterKind, type Ordinance, type StructType, type Tool,
 } from '../game/types';
 import { fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
 import { renderIcon } from '../render/sprites';
+import { Renderer } from '../render/renderer';
 import type { SaveEntry } from '../save';
 import { renderPreview } from './preview';
 
@@ -26,6 +27,8 @@ export interface HudHandlers {
   onRandomDisasters(enabled: boolean): void;
   onOrdinance(key: Ordinance, enabled: boolean): void;
   onLang(lang: Lang): void;
+  /** the player tapped the minimap: look there */
+  onMinimap(x: number, y: number): void;
   /** why a tool cannot be used right now (locked reward), or null */
   lockReason(tool: Tool): string | null;
 }
@@ -49,7 +52,10 @@ type ToolbarEntry =
 
 /** toolbar thumbnails are rendered large; the flyout shows the same canvases scaled down by CSS */
 const ICON = 68;
-const structIcon = (type: StructType) => () => renderIcon([`st:${type}`], STRUCTS[type].size, ICON);
+/** the building fills the square: toolbar buttons zoom in more than flyout items */
+const ZOOM_BAR = 1.6, ZOOM_ITEM = 1.35;
+const structIcon = (type: StructType, zoom = ZOOM_ITEM) => () => renderIcon([`st:${type}`], STRUCTS[type].size, ICON, zoom);
+const tileIcon = (keys: string[], zoom = ZOOM_ITEM) => () => renderIcon(keys, 1, ICON, zoom);
 
 const structItems = (types: StructType[]): FlyoutItem[] => types.map((type) => {
   const def = STRUCTS[type];
@@ -64,36 +70,35 @@ const structItems = (types: StructType[]): FlyoutItem[] => types.map((type) => {
 
 function toolbarEntries(): ToolbarEntry[] {
   return [
-    { tool: 'res', label: t('tool.res'), key: 'R', cost: t('perTile', { n: 30 }), icon: () => renderIcon(['bld:3:2:0'], 1, ICON) },
-    { tool: 'com', label: t('tool.com'), key: 'C', cost: t('perTile', { n: 30 }), icon: () => renderIcon(['bld:4:2:0'], 1, ICON) },
-    { tool: 'ind', label: t('tool.ind'), key: 'I', cost: t('perTile', { n: 30 }), icon: () => renderIcon(['bld:5:3:1'], 1, ICON) },
-    { tool: 'road', label: t('tool.road'), key: 'T', cost: t('perTile', { n: 10 }), icon: () => renderIcon(['road:10:0000'], 1, ICON) },
+    { tool: 'query', label: t('tool.query'), key: 'Q', icon: queryIcon },
+    { tool: 'res', label: t('tool.res'), key: 'R', cost: t('perTile', { n: 30 }), icon: tileIcon(['bld:3:1:2'], ZOOM_BAR) },
+    { tool: 'com', label: t('tool.com'), key: 'C', cost: t('perTile', { n: 30 }), icon: tileIcon(['bld:4:2:0'], ZOOM_BAR) },
+    { tool: 'ind', label: t('tool.ind'), key: 'I', cost: t('perTile', { n: 30 }), icon: tileIcon(['bld:5:2:0'], ZOOM_BAR) },
     {
-      group: t('group.transport'), icon: structIcon('station'), items: [
-        { tool: 'rail', name: t('tool.rail'), meta: t('tool.rail.meta'), desc: t('tool.rail.desc'), icon: () => renderIcon(['grass:0000:0', 'rail:10:0000'], 1, ICON) },
-        { tool: 'highway', name: t('tool.highway'), meta: t('tool.highway.meta'), desc: t('tool.highway.desc'), icon: () => renderIcon(['hwy:10:0000'], 1, ICON) },
+      group: t('group.transport'), icon: tileIcon(['road:10:0000'], ZOOM_BAR), items: [
+        { tool: 'road', name: `${t('tool.road')} (T)`, meta: t('perTile', { n: 10 }), desc: t('tool.road.desc'), icon: tileIcon(['road:10:0000']) },
+        { tool: 'rail', name: t('tool.rail'), meta: t('tool.rail.meta'), desc: t('tool.rail.desc'), icon: tileIcon(['grass:0000:0', 'rail:10:0000']) },
+        { tool: 'highway', name: t('tool.highway'), meta: t('tool.highway.meta'), desc: t('tool.highway.desc'), icon: tileIcon(['hwy:10:0000']) },
         ...structItems(['station', 'bus', 'port', 'airport']),
       ],
     },
     {
-      group: t('group.energy'), icon: structIcon('coal'), items: [
-        { tool: 'wire', name: `${t('tool.wire')} (L)`, meta: t('perTile', { n: 5 }), desc: t('tool.wire.desc'), icon: () => renderIcon(['grass:0000:0', 'wire:10:0000'], 1, ICON) },
+      group: t('group.energy'), icon: structIcon('wind', ZOOM_BAR), items: [
+        { tool: 'wire', name: `${t('tool.wire')} (L)`, meta: t('perTile', { n: 5 }), desc: t('tool.wire.desc'), icon: tileIcon(['grass:0000:0', 'wire:10:0000']) },
         ...structItems(['wind', 'coal', 'gas', 'nuclear']),
       ],
     },
-    { group: t('group.water'), icon: structIcon('tower'), items: structItems(['pump', 'tower']) },
-    { group: t('group.services'), icon: structIcon('police'), items: structItems(['police', 'fire', 'school', 'hospital']) },
-    { group: t('group.parks'), icon: structIcon('bigpark'), items: structItems(['park', 'bigpark']) },
+    { group: t('group.water'), icon: structIcon('tower', ZOOM_BAR), items: structItems(['pump', 'tower']) },
+    { group: t('group.services'), icon: structIcon('hospital', ZOOM_BAR), items: structItems(['police', 'fire', 'school', 'hospital']) },
+    { group: t('group.parks'), icon: structIcon('bigpark', ZOOM_BAR), items: structItems(['park', 'bigpark', 'statue', 'cityhall', 'mansion', 'arcology']) },
     {
-      group: t('group.terrain'), icon: () => renderIcon(['grass:0110:0'], 1, ICON), items: [
-        { tool: 'raise', name: t('tool.raise'), meta: t('tool.terra.meta'), desc: t('tool.raise.desc'), icon: () => renderIcon(['grass:1100:0'], 1, ICON) },
-        { tool: 'lower', name: t('tool.lower'), meta: t('tool.terra.meta'), desc: t('tool.lower.desc'), icon: () => renderIcon(['grass:0011:0'], 1, ICON) },
-        { tool: 'level', name: t('tool.level'), meta: t('tool.terra.meta'), desc: t('tool.level.desc'), icon: () => renderIcon(['grass:0000:0'], 1, ICON) },
+      group: t('tool.bulldoze'), icon: tileIcon(['icon:bulldozer'], 1.5), items: [
+        { tool: 'bulldoze', name: `${t('tool.bulldoze')} (B)`, meta: t('perTile', { n: 1 }), desc: t('tool.bulldoze.desc'), icon: tileIcon(['icon:bulldozer'], 1.3) },
+        { tool: 'raise', name: t('tool.raise'), meta: t('tool.terra.meta'), desc: t('tool.raise.desc'), icon: tileIcon(['grass:1100:0']) },
+        { tool: 'lower', name: t('tool.lower'), meta: t('tool.terra.meta'), desc: t('tool.lower.desc'), icon: tileIcon(['grass:0011:0']) },
+        { tool: 'level', name: t('tool.level'), meta: t('tool.terra.meta'), desc: t('tool.level.desc'), icon: tileIcon(['grass:0000:0']) },
       ],
     },
-    { group: t('group.rewards'), icon: structIcon('cityhall'), items: structItems(['cityhall', 'statue', 'mansion', 'arcology']) },
-    { tool: 'bulldoze', label: t('tool.bulldoze'), key: 'B', cost: t('perTile', { n: 1 }), icon: () => renderIcon(['icon:bulldozer'], 1, ICON) },
-    { tool: 'query', label: t('tool.query'), key: 'Q', icon: queryIcon },
   ];
 }
 
@@ -153,6 +158,7 @@ export class Hud {
   private power = $('power');
   private water = $('water');
   private status = $('status');
+  private toolPill = $<HTMLButtonElement>('tool-pill');
   private legend = $('legend');
   private preview = $('preview');
   private query = $('query');
@@ -190,6 +196,8 @@ export class Hud {
     this.buildMapsMenu();
     this.buildDisastersMenu();
     this.buildWelcome();
+    this.bindMinimap();
+    this.toolPill.addEventListener('click', () => this.handlers.onTool('query'));
 
     for (const b of this.speedButtons) {
       b.addEventListener('click', () => handlers.onSpeed(Number(b.dataset.speed)));
@@ -305,6 +313,14 @@ export class Hud {
 
   setTool(tool: Tool): void {
     for (const [tl, b] of this.toolButtons) b.classList.toggle('active', tl === tool);
+    // on touch screens, a build tool shows what it expects and a way back to the magnifier
+    const build = tool !== 'none' && tool !== 'query';
+    this.toolPill.hidden = !build;
+    if (build) {
+      const name = isStructTool(tool) ? structName(tool) : t(`tool.${tool}`);
+      const tap = isStructTool(tool) || tool === 'raise' || tool === 'lower';
+      this.toolPill.querySelector('.txt')!.textContent = t(tap ? 'touch.tool.tap' : 'touch.tool.drag', { name });
+    }
     for (const [, g] of this.groupButtons) {
       const item = g.items.find((it) => it.tool === tool);
       g.button.classList.toggle('active', !!item);
@@ -575,6 +591,89 @@ export class Hud {
   }
 
   // ---- live values ---------------------------------------------------------
+
+  // ---- minimap ------------------------------------------------------------
+
+  private minimap = $<HTMLCanvasElement>('minimap-canvas');
+  private minimapBase: HTMLCanvasElement | null = null;
+  private minimapAt = 0;
+  private minimapSize = 0;
+
+  /** top-down iso thumbnail of the whole map (2 px per tile) plus the frame of what is on screen */
+  drawMinimap(city: City, renderer: Renderer, now: number): void {
+    const n = city.size;
+    const W = n * 2, H = n;
+    if (!this.minimapBase || this.minimapSize !== n || now - this.minimapAt > 700) {
+      this.minimapSize = n;
+      this.minimapAt = now;
+      const base = this.minimapBase ?? document.createElement('canvas');
+      base.width = W; base.height = H;
+      const bctx = base.getContext('2d')!;
+      const img = bctx.createImageData(W, H);
+      const d = img.data;
+      const put = (px: number, py: number, r: number, g: number, b: number) => {
+        if (px < 0 || py < 0 || px >= W || py >= H) return;
+        const o = (py * W + px) * 4;
+        d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = 255;
+      };
+      for (let y = 0; y < n; y++) {
+        for (let x = 0; x < n; x++) {
+          const i = y * n + x;
+          let c: [number, number, number];
+          const o = city.overlay[i] as Overlay;
+          if (city.terrain[i] === Terrain.Water) c = [52, 120, 200];
+          else if (o === Overlay.Road || o === Overlay.Highway) c = [170, 176, 186];
+          else if (o === Overlay.Res) c = city.level[i] ? [70, 200, 90] : [50, 140, 70];
+          else if (o === Overlay.Com) c = city.level[i] ? [80, 150, 240] : [50, 100, 170];
+          else if (o === Overlay.Ind) c = city.level[i] ? [240, 200, 70] : [170, 140, 50];
+          else if (o === Overlay.Struct) c = [235, 235, 240];
+          else if (o === Overlay.Tree) c = [40, 110, 50];
+          else if (city.rail[i]) c = [120, 100, 90];
+          else c = [90, 165, 70];
+          // iso: tile (x, y) -> column x - y, row (x + y) / 2, two pixels wide
+          const px = x - y + n - 1, py = (x + y) >> 1;
+          put(px, py, c[0], c[1], c[2]);
+          put(px + 1, py, c[0], c[1], c[2]);
+        }
+      }
+      bctx.putImageData(img, 0, 0);
+      this.minimapBase = base;
+    }
+    const cv = this.minimap;
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext('2d')!;
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(this.minimapBase, 0, 0);
+    // frame of the visible area: the four screen corners, back to tile space
+    const corners: [number, number][] = [[0, 0], [renderer.width, 0], [renderer.width, renderer.height], [0, renderer.height]];
+    ctx.beginPath();
+    corners.forEach(([sx, sy], k) => {
+      const w = renderer.screenToWorld(sx, sy);
+      const tt = Renderer.worldToTileF(w.x, w.y);
+      const px = tt.x - tt.y + n, py = (tt.x + tt.y) / 2;
+      if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.strokeStyle = '#ffd23f';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  private bindMinimap(): void {
+    const box = $('minimap');
+    box.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const r = this.minimap.getBoundingClientRect();
+      const n = this.minimapSize || 1;
+      const px = ((e.clientX - r.left) / r.width) * n * 2, py = ((e.clientY - r.top) / r.height) * n;
+      // inverse of the iso projection above
+      const x = (px - n + 2 * py) / 2, y = (2 * py - (px - n)) / 2;
+      this.handlers.onMinimap(Math.max(0, Math.min(n - 1, x)), Math.max(0, Math.min(n - 1, y)));
+    });
+  }
 
   update(city: City): void {
     const b = city.lastBudget;
