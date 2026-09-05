@@ -147,7 +147,9 @@ export class Renderer {
           if (!s) continue;
           const n = STRUCTS[s.type].size;
           // wind turbines turn: six rotor frames, each machine out of step with its neighbours
-          const key = s.type === 'wind' && animate ? `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}` : `st:${s.type}`;
+          let key = `st:${s.type}`;
+          if (s.type === 'wind' && animate) key = `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}`;
+          else if (s.type === 'station' && this.stationAlongY(city, s.x, s.y, n)) key = 'st:station:1';
           ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
           if (showMarkers && x === s.x && y === s.y && STRUCTS[s.type].consumes && !powered[i]) {
             this.marker(px, py + hh, scale, 'bolt');
@@ -184,7 +186,7 @@ export class Renderer {
         }
 
         if (showMarkers && isZone(ov)) {
-          if (roadDist[i] === NO_ROAD) this.marker(px, py + hh, scale, 'dot');
+          if (roadDist[i] === NO_ROAD) this.marker(px, py + hh, scale, 'road');
           else if (!powered[i]) this.marker(px, py + hh, scale, 'bolt');
           else if (!watered[i] && level[i] >= 2) this.marker(px, py + hh, scale, 'drop');
         }
@@ -207,14 +209,18 @@ export class Renderer {
     for (const a of city.actors) this.drawActor(city, a, ox, oy, hw, hh, hs, scale, time);
 
     if (preview) {
-      ctx.fillStyle = preview.color;
-      ctx.globalAlpha = 0.45;
+      // tinted tiles, each outlined in white so the selection reads on any ground
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = Math.max(1, 1.2 * dpr);
       for (const i of preview.tiles) {
         const x = i % city.size, y = (i - x) / city.size;
         this.diamondPath(ox + (x - y) * hw, oy + (x + y) * hh - Math.round(city.base(x, y) * hs), hw, hh);
+        ctx.fillStyle = preview.color;
+        ctx.globalAlpha = 0.5;
         ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.stroke();
       }
-      ctx.globalAlpha = 1;
     }
 
     if (hover && city.inBounds(hover.x, hover.y)) {
@@ -223,6 +229,18 @@ export class Renderer {
       this.diamondPath(ox + (hover.x - hover.y) * hw, oy + (hover.x + hover.y) * hh - Math.round(city.base(hover.x, hover.y) * hs), hw, hh);
       ctx.stroke();
     }
+  }
+
+  /** Does the track next to a station run along y (more rail tiles beside its x sides than its y sides)? */
+  private stationAlongY(city: City, x: number, y: number, n: number): boolean {
+    let alongX = 0, alongY = 0;
+    for (let k = 0; k < n; k++) {
+      if (city.hasRail(x + k, y - 1)) alongX++;
+      if (city.hasRail(x + k, y + n)) alongX++;
+      if (city.hasRail(x - 1, y + k)) alongY++;
+      if (city.hasRail(x + n, y + k)) alongY++;
+    }
+    return alongY > alongX;
   }
 
   /** Cars sliding along straight roadway tiles, as many as the traffic model says. */
@@ -285,7 +303,7 @@ export class Renderer {
   }
 
   /** Problem badges on zones: a dark disc so the icon reads on any ground. */
-  private marker(cx: number, cy: number, scale: number, kind: 'dot' | 'bolt' | 'drop'): void {
+  private marker(cx: number, cy: number, scale: number, kind: 'road' | 'bolt' | 'drop'): void {
     const { ctx } = this;
     const r = Math.max(5, 8 * scale);
     ctx.fillStyle = 'rgba(15,20,34,0.72)';
@@ -293,11 +311,29 @@ export class Renderer {
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = Math.max(1, 1.2 * scale);
-    if (kind === 'dot') {
-      ctx.fillStyle = '#ff5a48';
+    if (kind === 'road') {
+      // a bit of road struck through: no road access
+      const w = r * 1.3, h = r * 0.5;
+      ctx.fillStyle = '#9aa0a6';
       ctx.beginPath();
-      ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+      ctx.roundRect(cx - w / 2, cy - h / 2, w, h, h * 0.3);
       ctx.fill();
+      ctx.strokeStyle = '#ffd23f';
+      ctx.lineWidth = Math.max(1, r * 0.12);
+      ctx.setLineDash([r * 0.22, r * 0.18]);
+      ctx.beginPath();
+      ctx.moveTo(cx - w / 2 + r * 0.1, cy);
+      ctx.lineTo(cx + w / 2 - r * 0.1, cy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#ff4a3a';
+      ctx.lineWidth = Math.max(1.5, r * 0.26);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.62, cy + r * 0.62);
+      ctx.lineTo(cx + r * 0.62, cy - r * 0.62);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
       return;
     }
     if (kind === 'bolt') {

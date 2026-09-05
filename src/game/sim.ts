@@ -3,9 +3,7 @@ import { disasterMonth, disasterTick } from './disasters';
 import { t } from '../i18n';
 import { STRUCTS, structName } from './structs';
 import {
-  BOND_AMOUNT, COST, DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, MAX_LEVEL,
-  MAX_TRIP, NO_ROAD, ORDINANCES, ORDINANCE_KEYS, Overlay, POP_PER_LEVEL, POWER_USE, ROAD_CAPACITY, ROAD_REACH,
-  START_YEAR, TICKS_PER_MONTH, isZone, type ZoneType,
+  BOND_AMOUNT, COST, DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, MAX_LEVEL, MAX_TRIP, NO_ROAD, ORDINANCES, ORDINANCE_KEYS, Overlay, POP_PER_LEVEL, POWER_USE, ROAD_CAPACITY, ROAD_REACH, START_YEAR, TICKS_PER_MONTH, Terrain, isZone, type ZoneType,
 } from './types';
 
 const MILESTONES = [1000, 2500, 5000, 10000, 25000, 50000, 100000];
@@ -438,13 +436,11 @@ export function recomputeWater(city: City): void {
   }
 }
 
+/** Does the n×n footprint at (x, y) share an edge with water? Diagonal corners do not count. */
 export function touchesWater(city: City, x: number, y: number, n: number): boolean {
-  for (let yy = y - 1; yy <= y + n; yy++) {
-    for (let xx = x - 1; xx <= x + n; xx++) {
-      const inside = xx >= x && xx < x + n && yy >= y && yy < y + n;
-      if (inside || !city.inBounds(xx, yy)) continue;
-      if (city.terrain[city.idx(xx, yy)] === 1) return true;
-    }
+  const water = (xx: number, yy: number) => city.inBounds(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Water;
+  for (let k = 0; k < n; k++) {
+    if (water(x + k, y - 1) || water(x + k, y + n) || water(x - 1, y + k) || water(x + n, y + k)) return true;
   }
   return false;
 }

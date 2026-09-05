@@ -3,6 +3,16 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.2 — 2026-09-05
+
+- Les zones encore vides se voient enfin : hachures, contour marqué et lettre
+  R, C ou I. L'aperçu pendant le tracé est cerclé de blanc.
+- La pastille « pas de route » montre un tronçon de route barré au lieu d'un
+  point rouge.
+- Routes, autoroutes et rails prennent leurs virages en courbe.
+- La gare se tourne pour longer sa voie.
+- Le port et la pompe exigent de l'eau bord à bord, plus seulement un coin.
+
 ## 0.3.1 — 2026-09-05
 
 - Sur téléphone, un appui long pose directement un bâtiment : l'emprise suit

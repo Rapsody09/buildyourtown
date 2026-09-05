@@ -24,7 +24,10 @@ export function groundHeight(u: number, v: number, c: Corners): number {
 }
 
 /** Footprint coords (u, v in [0, N]) + height in px -> sprite-local pixel coords. */
+/** when set, footprint axes are swapped: the sprite is drawn turned by a quarter (mirrored across the diagonal) */
+let SWAP = false;
 function P(u: number, v: number, h = 0): Pt2 {
+  if (SWAP) [u, v] = [v, u];
   return [(u - v) * TILE_W / 2 + N * TILE_W / 2, (u + v) * TILE_H / 2 + MAX_H - h - groundHeight(u, v, SLOPE)];
 }
 
@@ -158,6 +161,60 @@ function drawTrees(ctx: Ctx, variant: number): void {
 }
 
 /** mask bits: 1 = (x, y-1), 2 = (x+1, y), 4 = (x, y+1), 8 = (x-1, y) */
+interface Bend {
+  q: (t: number) => Pt2;
+  normal: (t: number) => Pt2;
+}
+
+/** For a tile with exactly two arms at right angles: the smooth curve joining them (point and unit normal in footprint space). */
+function bend(mask: number): Bend | null {
+  const ends: Pt2[] = [];
+  if (mask & 1) ends.push([0.5, 0]);
+  if (mask & 2) ends.push([1, 0.5]);
+  if (mask & 4) ends.push([0.5, 1]);
+  if (mask & 8) ends.push([0, 0.5]);
+  if (ends.length !== 2 || ends[0][0] === ends[1][0] || ends[0][1] === ends[1][1]) return null;
+  const [a, b] = ends;
+  const q = (t: number): Pt2 => {
+    const s = 1 - t;
+    return [s * s * a[0] + 2 * s * t * 0.5 + t * t * b[0], s * s * a[1] + 2 * s * t * 0.5 + t * t * b[1]];
+  };
+  const normal = (t: number): Pt2 => {
+    const [u0, v0] = q(Math.max(0, t - 0.01)), [u1, v1] = q(Math.min(1, t + 0.01));
+    const du = u1 - u0, dv = v1 - v0, l = Math.hypot(du, dv) || 1;
+    return [-dv / l, du / l];
+  };
+  return { q, normal };
+}
+
+/** Polygon of a band of half-width `w` along a bend. */
+function bendBand(b: Bend, w: number, steps = 24): Pt2[] {
+  const left: Pt2[] = [], right: Pt2[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const [u, v] = b.q(t), [nu, nv] = b.normal(t);
+    left.push(P(u + nu * w, v + nv * w));
+    right.push(P(u - nu * w, v - nv * w));
+  }
+  return [...left, ...right.reverse()];
+}
+
+/** Stroke a line running along a bend, offset by `k` from its middle. */
+function bendLine(ctx: Ctx, b: Bend, k: number, color: string, width: number, dash: number[] = [], steps = 24): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const [u, v] = b.q(t), [nu, nv] = b.normal(t);
+    const [x, y] = P(u + nu * k, v + nv * k);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
 function drawRoadSurface(ctx: Ctx, mask: number): void {
   const m = mask === 0 ? 10 : mask;
   const arms: [number, number, number, number][] = [];
@@ -171,6 +228,13 @@ function drawRoadSurface(ctx: Ctx, mask: number): void {
 
   const kerb = '#9aa0a6';
   const asphalt = '#565b61';
+  const bd = bend(m);
+  if (bd) {
+    poly(ctx, bendBand(bd, 0.24), kerb);
+    poly(ctx, bendBand(bd, 0.2), asphalt);
+    bendLine(ctx, bd, 0, '#d8c25a', 1.2, [3, 3]);
+    return;
+  }
   for (const pass of [0, 1]) {
     const grow = pass === 0 ? 0.04 : 0;
     const col = pass === 0 ? kerb : asphalt;
@@ -215,6 +279,15 @@ function drawHighwaySurface(ctx: Ctx, mask: number): void {
   if (m & 8) arms.push([0, 0.18, 0.18, 0.82]);
   const rectPoly = (u0: number, v0: number, u1: number, v1: number): Pt2[] =>
     [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const bd = bend(m);
+  if (bd) {
+    poly(ctx, bendBand(bd, 0.36), '#8d9299');
+    poly(ctx, bendBand(bd, 0.32), '#484c52');
+    bendLine(ctx, bd, 0, '#d0d0d0', 1.5);
+    bendLine(ctx, bd, -0.16, 'rgba(255,255,255,0.7)', 1, [3, 4]);
+    bendLine(ctx, bd, 0.16, 'rgba(255,255,255,0.7)', 1, [3, 4]);
+    return;
+  }
   for (const pass of [0, 1]) {
     const grow = pass === 0 ? 0.04 : 0;
     const col = pass === 0 ? '#8d9299' : '#484c52';
@@ -281,6 +354,17 @@ function drawRail(ctx: Ctx, mask: number): void {
     ctx.lineTo(b[0], b[1]);
     ctx.stroke();
   };
+  const bd = bend(m);
+  if (bd) {
+    // a bend: sleepers along the curve, then the two rails
+    for (let t = 0.05; t < 1; t += 0.09) {
+      const [u, v] = bd.q(t), [nu, nv] = bd.normal(t);
+      seg(P(u - nu * 0.16, v - nv * 0.16), P(u + nu * 0.16, v + nv * 0.16), '#6b5537', 1.5);
+    }
+    bendLine(ctx, bd, -0.07, '#3a3a3a', 1.2);
+    bendLine(ctx, bd, 0.07, '#3a3a3a', 1.2);
+    return;
+  }
   for (const [du, dv] of dirs) {
     const pu = du === 0 ? 1 : 0, pv = du === 0 ? 0 : 1; // perpendicular
     for (let t = 0.08; t < 1; t += 0.14) {
@@ -388,10 +472,53 @@ function drawFlames(ctx: Ctx, frame: number): void {
   }
 }
 
+/** Zoned but still empty: hatched in the zone colour, double outline and a letter, so it reads on any ground. */
 function drawEmptyZone(ctx: Ctx, zone: ZoneType): void {
   drawGrass(ctx, zone);
   const c = ZONE_COLOR[zone];
-  poly(ctx, diamond(0.07), alpha(c, 0.22), alpha(c, 0.95), 1.5);
+  const d = diamond(0.08);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(d[0][0], d[0][1]);
+  for (const [x, y] of d.slice(1)) ctx.lineTo(x, y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.fillStyle = alpha(c, 0.3);
+  ctx.fill();
+  // stripes along one iso diagonal
+  ctx.strokeStyle = alpha(c, 0.8);
+  ctx.lineWidth = 2;
+  for (let k = -0.9; k <= 1.9; k += 0.18) {
+    const a = P(k, 0), b = P(k - 1, 1);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  }
+  // dark stripes in between, so the hatching also reads when the zone colour is close to the grass
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+  ctx.lineWidth = 1.5;
+  for (let k = -0.81; k <= 1.9; k += 0.18) {
+    const a = P(k, 0), b = P(k - 1, 1);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.stroke();
+  }
+  ctx.restore();
+  poly(ctx, d, 'rgba(0,0,0,0)', 'rgba(0,0,0,0.55)', 3.5);
+  poly(ctx, d, 'rgba(0,0,0,0)', c, 1.6);
+  const [x, y] = P(0.5, 0.5);
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineJoin = 'round';
+  const letter = zone === Overlay.Res ? 'R' : zone === Overlay.Com ? 'C' : 'I';
+  ctx.strokeText(letter, x, y + 0.5);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(letter, x, y + 0.5);
 }
 
 // ---- buildings ------------------------------------------------------------
@@ -1233,6 +1360,8 @@ const STRUCT_LOT: Record<string, string> = {
 
 /** `frame` only matters for animated structures (the wind turbine rotor, 6 frames over a third of a turn). */
 function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
+  // the station turns to run along the track it serves
+  if (type === 'station' && frame === 1) SWAP = true;
   const def = STRUCTS[type];
   const n = def.size;
   for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) drawGrass(ctx, (tx * 3 + ty) & 3, tx, ty);
@@ -1525,6 +1654,7 @@ export class SpriteCache {
       N = n;
       drawByKey(ctx, key);
       N = 1;
+      SWAP = false;
       SLOPE = [0, 0, 0, 0];
       this.cache.set(k, c);
     }
