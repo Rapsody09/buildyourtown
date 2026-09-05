@@ -3,6 +3,12 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.1 — 2026-09-05
+
+- Sur téléphone, un appui long pose directement un bâtiment : l'emprise suit
+  le doigt et se pose au relâchement. Le double appui reste possible.
+- Les rotors des éoliennes tournent.
+
 ## 0.3.0 — 2026-09-05
 
 Le tactile revu de fond en comble, une mini-carte et une barre d'outils plus

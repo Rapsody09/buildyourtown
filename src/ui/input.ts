@@ -3,8 +3,12 @@ import { Renderer, ZOOM_LEVELS } from '../render/renderer';
 
 export interface InputHandlers {
   onHover(tile: Pt | null): void;
-  /** `touch` is true for a finger: click tools then preview first and confirm on a second tap */
-  onDragStart(tile: Pt, touch: boolean): void;
+  /**
+   * `touch` is true for a finger; `hold` when the finger was held down first: a
+   * building then follows the finger and is placed on release, whereas a plain
+   * tap previews first and places on a second tap.
+   */
+  onDragStart(tile: Pt, touch: boolean, hold?: boolean): void;
   onDrag(tile: Pt): void;
   onDragEnd(tile: Pt): void;
   onDragCancel(): void;
@@ -185,7 +189,7 @@ export function attachInput(canvas: HTMLCanvasElement, renderer: Renderer, h: In
           dragging = true;
           navigator.vibrate?.(12);
           lastTile = renderer.screenToTile(f.x, f.y);
-          h.onDragStart(lastTile, true);
+          h.onDragStart(lastTile, true, true);
         }, HOLD_MS);
       }
       return;

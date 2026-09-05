@@ -65,6 +65,8 @@ let gesturing = false;
 let unsaved = false;
 /** on touch screens a click tool previews on the first tap and places on the second tap of the same tile */
 let touchPending: Pt | null = null;
+/** a held finger carries a building around: it is placed where the finger lets go */
+let holdPlacing = false;
 
 const hud = new Hud({
   onTool: setTool,
@@ -268,10 +270,19 @@ attachInput(canvas, renderer, {
     if (p && isClickTool(tool)) clickPreview(p);
     dirty = true;
   },
-  onDragStart: (p, touch) => {
+  onDragStart: (p, touch, hold = false) => {
     if (tool === 'query') { queryTile(p); return; }
     if (tool === 'none') return;
     if (isClickTool(tool)) {
+      if (hold) {
+        // held: show the footprint under the finger, place it on release
+        holdPlacing = true;
+        touchPending = null;
+        hover = p;
+        clickPreview(p);
+        hud.setStatus(t('touch.release'), true);
+        return;
+      }
       if (touch && !(touchPending && touchPending.x === p.x && touchPending.y === p.y)) {
         // first tap: show the footprint, ask for a second tap
         hover = p;
@@ -289,8 +300,20 @@ attachInput(canvas, renderer, {
     dragFrom = p;
     updatePlan(p);
   },
-  onDrag: (p) => updatePlan(p),
+  onDrag: (p) => {
+    if (holdPlacing) { hover = p; clickPreview(p); return; }
+    updatePlan(p);
+  },
   onDragEnd: (p) => {
+    if (holdPlacing) {
+      holdPlacing = false;
+      hover = p;
+      clickPreview(p);
+      commitPlan();
+      clickPreview(p);
+      dirty = true;
+      return;
+    }
     if (!dragFrom) return;
     updatePlan(p);
     commitPlan();
@@ -300,6 +323,7 @@ attachInput(canvas, renderer, {
     dirty = true;
   },
   onDragCancel: () => {
+    holdPlacing = false;
     dragFrom = null;
     plan = null;
     hud.setPreview(null);

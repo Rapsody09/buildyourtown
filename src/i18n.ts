@@ -141,9 +141,10 @@ const D: Record<string, [string, string]> = {
   'help': ['Glisser pour tracer. Clic droit, espace ou flèches : déplacer. Molette : zoom. P : pause.', 'Drag to build. Right click, space or arrows: pan. Wheel: zoom. P: pause.'],
   'locked': ['Verrouillé : {pop} habitants requis', 'Locked: {pop} residents needed'],
   'touch.confirm': ['Touchez à nouveau la même case pour construire.', 'Tap the same tile again to build.'],
-  'help.touch': ['Un doigt : déplacer la vue. Un appui : poser une case, deux appuis pour un bâtiment. Appui long puis glisser : tracer avec l\'outil choisi. Deux doigts : zoomer.', 'One finger: pan. Tap: place a tile, tap twice for a building. Press and hold, then drag: draw with the selected tool. Two fingers: zoom.'],
+  'help.touch': ['Un doigt : déplacer la vue. Appui long : poser un bâtiment (il suit le doigt jusqu\'au relâchement) ou tracer avec l\'outil choisi. Un appui bref : info, ou aperçu puis second appui pour confirmer. Deux doigts : zoomer.', 'One finger: pan. Press and hold: place a building (it follows the finger until released) or draw with the selected tool. A short tap: info, or a preview then a second tap to confirm. Two fingers: zoom.'],
   'touch.tool.drag': ['{name} · appui long pour tracer', '{name} · press and hold to draw'],
-  'touch.tool.tap': ['{name} · appuyez sur une case', '{name} · tap a tile'],
+  'touch.tool.tap': ['{name} · appui long pour poser', '{name} · press and hold to place'],
+  'touch.release': ['Relâchez pour poser', 'Release to place'],
   'minimap': ['Carte : appuyez pour vous y rendre', 'Map: tap to go there'],
 
   // ---- top bar & menus

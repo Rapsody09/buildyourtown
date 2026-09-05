@@ -146,7 +146,9 @@ export class Renderer {
           const s = city.structAt(i);
           if (!s) continue;
           const n = STRUCTS[s.type].size;
-          ctx.drawImage(this.sprites.getColumn(`st:${s.type}`, scale, n, x - s.x, y - s.y), px - ax, py - ay);
+          // wind turbines turn: six rotor frames, each machine out of step with its neighbours
+          const key = s.type === 'wind' && animate ? `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}` : `st:${s.type}`;
+          ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
           if (showMarkers && x === s.x && y === s.y && STRUCTS[s.type].consumes && !powered[i]) {
             this.marker(px, py + hh, scale, 'bolt');
           }

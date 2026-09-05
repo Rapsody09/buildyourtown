@@ -85,10 +85,11 @@ barre, est le mode par défaut : un clic renseigne sur une case.
 
 **Sur mobile ou tablette**, la barre d'outils passe en bas de l'écran et les
 panneaux s'ouvrent en volets. Un doigt déplace la vue ; deux doigts zooment.
-Un appui pose une case avec l'outil choisi (pour un bâtiment, un premier appui
-montre l'aperçu et un second au même endroit confirme) ; un appui long suivi
-d'un glissement trace une route, une zone ou une ligne. La mini-carte en bas à
-droite montre où l'on se trouve : appuyer dessus déplace la vue.
+Un appui long pose un bâtiment, qui suit le doigt jusqu'au relâchement, ou
+trace une route, une zone ou une ligne en glissant. Un appui bref renseigne
+sur une case avec la loupe, ou montre l'aperçu d'un bâtiment qu'un second appui
+confirme. La mini-carte en bas à droite montre où l'on se trouve : appuyer
+dessus déplace la vue.
 
 ### Ce qui fait vivre la ville
 

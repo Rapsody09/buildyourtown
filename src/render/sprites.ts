@@ -1231,7 +1231,8 @@ const STRUCT_LOT: Record<string, string> = {
   power: '#8a8d8a', water: '#8fa39a', service: '#9b9ea3', park: '#8ccf6a', transport: '#8f9296', reward: '#b5b0a8',
 };
 
-function drawStruct(ctx: Ctx, type: StructType): void {
+/** `frame` only matters for animated structures (the wind turbine rotor, 6 frames over a third of a turn). */
+function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
   const def = STRUCTS[type];
   const n = def.size;
   for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) drawGrass(ctx, (tx * 3 + ty) & 3, tx, ty);
@@ -1248,7 +1249,7 @@ function drawStruct(ctx: Ctx, type: StructType): void {
         c.strokeStyle = 'rgba(40,50,70,0.5)';
         c.lineWidth = 0.6;
         for (let k = 0; k < 3; k++) {
-          const a = -Math.PI / 2 + k * (Math.PI * 2 / 3) + 0.35;
+          const a = -Math.PI / 2 + k * (Math.PI * 2 / 3) + 0.35 + (frame % 6) * (Math.PI * 2 / 3) / 6;
           const L = 17;
           const tx = x + Math.cos(a) * L, ty = y + Math.sin(a) * L;
           const px = -Math.sin(a), py = Math.cos(a);
@@ -1662,7 +1663,7 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'fire': return drawFlames(ctx, num(1));
     case 'bld': return drawBuilding(ctx, num(1) as ZoneType, num(2), num(3));
     case 'big': return drawBigBuilding(ctx, num(1) as ZoneType, num(2), num(3), num(4));
-    case 'st': return drawStruct(ctx, parts[1] as StructType);
+    case 'st': return drawStruct(ctx, parts[1] as StructType, parts[2] ? num(2) : 0);
   }
 }
 
