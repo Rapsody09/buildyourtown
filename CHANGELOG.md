@@ -3,6 +3,25 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.5.0 — 2026-09-06
+
+On peut désormais perdre, et la barre d'outils va plus vite.
+
+- Faillite : six mois d'affilée sous le plancher de la difficulté (−10 000 $
+  en facile, −5 000 $ en moyen, 0 $ en difficile) et le conseil vous démet.
+  Le journal compte les mois restants. L'écran de faillite permet de reprendre
+  la partie juste avant la crise, d'ouvrir Mes villes ou de fonder une autre
+  ville.
+- Les emprunts sont plafonnés : cinq en facile, trois en moyen, deux en
+  difficile, au taux de la difficulté.
+- Un groupe d'outils sélectionne d'emblée son premier outil, route, ligne
+  haute tension, pompe, commissariat, parc ou bulldozer : on peut tracer tout
+  de suite.
+- Les refus de construction, fonds insuffisants ou terrain impossible,
+  s'affichent en bandeau rouge bien visible.
+- Les ponts ont des rampes aux extrémités et les voitures roulent sur le
+  tablier.
+
 ## 0.4.4 — 2026-09-05
 
 - Sur téléphone, les barres de demande R, C, I sont aussi dans le bandeau du

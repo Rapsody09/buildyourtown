@@ -335,15 +335,19 @@ function drawHighway(ctx: Ctx, mask: number): void {
   drawHighwaySurface(ctx, mask);
 }
 
-function drawHighwayBridge(ctx: Ctx, mask: number): void {
+function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0): void {
   const saved = SLOPE;
+  const deck = bridgeSlope(ramp);
   SLOPE = [0, 0, 0, 0];
   drawWater(ctx, mask & 1, 0);
-  const pier = new Scene(ctx, 0);
-  pier.box(0.25, 0.4, 0.45, 0.6, 12, '#6b6f75', '#8a8f96');
-  pier.box(0.55, 0.4, 0.75, 0.6, 12, '#6b6f75', '#8a8f96');
-  pier.render();
-  SLOPE = [1.5, 1.5, 1.5, 1.5];
+  const ph = pierHeight(deck);
+  if (ph > 0) {
+    const pier = new Scene(ctx, 0);
+    pier.box(0.25, 0.4, 0.45, 0.6, ph, '#6b6f75', '#8a8f96');
+    pier.box(0.55, 0.4, 0.75, 0.6, ph, '#6b6f75', '#8a8f96');
+    pier.render();
+  }
+  SLOPE = deck;
   drawHighwaySurface(ctx, mask);
   SLOPE = saved;
 }
@@ -388,14 +392,37 @@ function drawRail(ctx: Ctx, mask: number): void {
 }
 
 /** Road deck on piers over water. */
-function drawBridge(ctx: Ctx, mask: number): void {
+/**
+ * Deck heights (in HSTEP units) of a bridge tile: raised, except the corners on
+ * the sides that lead back to land (`ramp` bits N=1 E=2 S=4 W=8), which come
+ * down to the ground so the road climbs onto the bridge.
+ */
+export function bridgeSlope(ramp: number): Corners {
+  const c: Corners = [1.5, 1.5, 1.5, 1.5];
+  if (ramp & 1) { c[0] = 0; c[1] = 0; }
+  if (ramp & 2) { c[1] = 0; c[2] = 0; }
+  if (ramp & 4) { c[2] = 0; c[3] = 0; }
+  if (ramp & 8) { c[3] = 0; c[0] = 0; }
+  return c;
+}
+
+/** height of the pier under a deck: the deck's height at the tile centre */
+function pierHeight(deck: Corners): number {
+  return (deck[0] + deck[1] + deck[2] + deck[3]) / 4 * HSTEP;
+}
+
+function drawBridge(ctx: Ctx, mask: number, ramp = 0): void {
   const saved = SLOPE;
+  const deck = bridgeSlope(ramp);
   SLOPE = [0, 0, 0, 0];
   drawWater(ctx, mask & 1, 0);
-  const pier = new Scene(ctx, 0);
-  pier.box(0.4, 0.4, 0.6, 0.6, 12, '#6b6f75', '#8a8f96');
-  pier.render();
-  SLOPE = [1.5, 1.5, 1.5, 1.5];
+  const ph = pierHeight(deck);
+  if (ph > 0) {
+    const pier = new Scene(ctx, 0);
+    pier.box(0.4, 0.4, 0.6, 0.6, ph, '#6b6f75', '#8a8f96');
+    pier.render();
+  }
+  SLOPE = deck;
   drawRoadSurface(ctx, mask);
   SLOPE = saved;
 }
@@ -2196,9 +2223,9 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'water': return drawWater(ctx, num(1), num(2));
     case 'tree': SLOPE = parseSlope(parts[1]); return drawTrees(ctx, num(2));
     case 'road': SLOPE = parseSlope(parts[2]); return drawRoad(ctx, num(1));
-    case 'bridge': return drawBridge(ctx, num(1));
+    case 'bridge': return drawBridge(ctx, num(1), parts[2] ? num(2) : 0);
     case 'hwy': SLOPE = parseSlope(parts[2]); return drawHighway(ctx, num(1));
-    case 'hwybridge': return drawHighwayBridge(ctx, num(1));
+    case 'hwybridge': return drawHighwayBridge(ctx, num(1), parts[2] ? num(2) : 0);
     case 'rail': SLOPE = parseSlope(parts[2]); return drawRail(ctx, num(1));
     case 'wire': SLOPE = parseSlope(parts[2]); return drawWire(ctx, num(1));
     case 'zone': return drawEmptyZone(ctx, num(1) as ZoneType);

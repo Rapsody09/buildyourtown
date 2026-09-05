@@ -146,6 +146,9 @@ export class City {
 
   // ---- records ----
   maxPop = 0;
+  /** months in a row spent under the funds floor; bankrupt once it reaches BANKRUPT_MONTHS */
+  brokeMonths = 0;
+  bankrupt = false;
   ordinances: Record<Ordinance, boolean> = { watch: false, cleanAir: false, tourism: false, energy: false, parking: false };
   log: LogEntry[] = [];
   history: History = { pop: [], money: [] };
@@ -405,6 +408,8 @@ export class City {
       maxPop: this.maxPop,
       ordinances: { ...this.ordinances },
       randomDisasters: this.randomDisasters,
+      brokeMonths: this.brokeMonths,
+      bankrupt: this.bankrupt,
       log: this.log.slice(0, 100),
       history: { pop: this.history.pop.slice(-120), money: this.history.money.slice(-120) },
     };
@@ -441,6 +446,8 @@ export class City {
       city.maxPop = s.maxPop;
       for (const k of ORDINANCE_KEYS) city.ordinances[k] = !!s.ordinances[k];
       city.randomDisasters = s.randomDisasters;
+      city.brokeMonths = s.brokeMonths ?? 0;
+      city.bankrupt = !!s.bankrupt;
       city.log = s.log;
       city.history = s.history;
     }
@@ -472,6 +479,8 @@ export interface SavedCity {
   maxPop: number;
   ordinances: Partial<Record<Ordinance, boolean>>;
   randomDisasters: boolean;
+  brokeMonths?: number;
+  bankrupt?: boolean;
   log: LogEntry[];
   history: History;
 }

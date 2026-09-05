@@ -318,6 +318,18 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 #demand-pop .drow b { width: 54px; text-align: right; font-weight: 800; }
 #demand-pop .advice { margin: 8px 8px 2px; font-weight: 700; }
 #demand-pop .hint { margin: 2px 8px 6px; font-size: 12px; color: var(--muted); }
+/* floating refusal message */
+#toast {
+  position: fixed; left: 50%; top: 66px; transform: translateX(-50%); z-index: 8;
+  max-width: min(92vw, 420px); padding: 9px 16px; border-radius: 12px;
+  font-weight: 800; text-align: center; color: #fff;
+  background: var(--danger); box-shadow: var(--shadow); pointer-events: none;
+  animation: toast-in 0.18s ease-out;
+}
+#toast.info { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.stat.money.flash { animation: money-flash 0.7s ease-out; }
+@keyframes money-flash { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px var(--danger); } }
 /* ---- tutorial ---- */
 #btn-help { font-family: var(--font-head); font-weight: 800; font-size: 18px; width: 42px; padding: 0; color: var(--accent); }
 .tutorial {
@@ -338,6 +350,12 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 .tutorial .dots i.on { background: var(--accent); }
 .tutorial .nav { display: flex; gap: 8px; }
 
+.tutorial.bankrupt .head h2 { color: var(--danger); }
+.tutorial.bankrupt .body { flex-direction: column; align-items: stretch; gap: 6px; }
+.tutorial.bankrupt .body p { margin: 0; font-size: 15px; line-height: 1.5; }
+.tutorial.bankrupt .body .hint { font-size: 13px; color: var(--muted); }
+.tutorial.bankrupt .foot.actions { flex-direction: column; align-items: stretch; gap: 8px; }
+.tutorial.bankrupt .foot.actions button { height: 42px; font-size: 15px; }
 /* ---- welcome ---- */
 .modal {
   position: fixed; inset: 0;
@@ -464,6 +482,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   #speed button { height: 36px; width: 42px; }
   button.lang .code { display: none; }
 
+  #toast { top: calc(54px + env(safe-area-inset-top)); font-size: 13px; }
   /* toolbar: one horizontal strip above the status bar */
   #toolbar {
     top: auto; left: 0; right: 0;

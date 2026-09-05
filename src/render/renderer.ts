@@ -3,7 +3,7 @@ import { hash2 } from '../game/rng';
 import { STRUCTS } from '../game/structs';
 import { HIGHWAY_CAPACITY, MAX_ELEV, NO_ROAD, Overlay, ROAD_CAPACITY, Terrain, isZone, type DataMap } from '../game/types';
 import type { Pt } from '../game/tools';
-import { CAR_COLORS, HSTEP, MAX_H, SpriteCache, TILE_H, TILE_W, groundHeight, type VehicleKind } from './sprites';
+import { CAR_COLORS, HSTEP, MAX_H, SpriteCache, TILE_H, TILE_W, bridgeSlope, groundHeight, type VehicleKind } from './sprites';
 import type { Struct } from '../game/structs';
 
 export interface Camera {
@@ -576,7 +576,8 @@ export class Renderer {
     const ax = Math.round(hw), ay = Math.round(MAX_H * scale);
     // py already sits at the tile's base height: measure the ground from there
     const base = Math.min(c[0], c[1], c[2], c[3]);
-    const rel: Corners = [c[0] - base, c[1] - base, c[2] - base, c[3] - base];
+    // on a bridge the cars ride the deck, ramps included
+    const rel: Corners = city.terrain[i] === Terrain.Water ? bridgeSlope(this.rampMask(city, x, y)) : [c[0] - base, c[1] - base, c[2] - base, c[3] - base];
     // lane centres on the asphalt; lanes below the middle line drive one way, the others back
     const lanes = highway ? [0.26, 0.42, 0.58, 0.74] : [0.4, 0.6];
     for (let k = 0; k < cars; k++) {
@@ -741,8 +742,8 @@ export class Renderer {
   private spriteKey(city: City, x: number, y: number, terrain: number, overlay: Overlay, level: number, pat: string, waterFrame: number): string {
     const h = hash2(x, y, 7);
     if (terrain === Terrain.Water) {
-      if (overlay === Overlay.Road) return `bridge:${this.roadMask(city, x, y)}`;
-      if (overlay === Overlay.Highway) return `hwybridge:${this.roadMask(city, x, y)}`;
+      if (overlay === Overlay.Road) return `bridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}`;
+      if (overlay === Overlay.Highway) return `hwybridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}`;
       return `water:${h & 1}:${waterFrame}`;
     }
     switch (overlay) {
@@ -755,6 +756,12 @@ export class Renderer {
         if (level === 0) return `zone:${overlay}`;
         return `bld:${overlay}:${level}:${(h >> 4) & 3}`;
     }
+  }
+
+  /** Sides of a bridge tile where the road steps back onto land: the deck ramps down there. */
+  private rampMask(city: City, x: number, y: number): number {
+    const land = (xx: number, yy: number) => city.inBounds(xx, yy) && city.isRoadway(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
+    return (land(x, y - 1) ? 1 : 0) | (land(x + 1, y) ? 2 : 0) | (land(x, y + 1) ? 4 : 0) | (land(x - 1, y) ? 8 : 0);
   }
 
   private roadMask(city: City, x: number, y: number): number {

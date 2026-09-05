@@ -3,7 +3,7 @@ import { randomSeed } from '../game/rng';
 import { advice } from '../game/sim';
 import { STRUCTS, isStructTool, structDesc, structName } from '../game/structs';
 import {
-  BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, MAX_BONDS, ORDINANCES, ORDINANCE_KEYS,
+  BANKRUPT_MONTHS, BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, ORDINANCES, ORDINANCE_KEYS,
   Overlay, Terrain, type DataMap, type Dept, type Difficulty, type Ordinance, type StructType, type Tool,
 } from '../game/types';
 import { fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
@@ -27,6 +27,8 @@ export interface HudHandlers {
   onLang(lang: Lang): void;
   /** the player tapped the minimap: look there */
   onMinimap(x: number, y: number): void;
+  /** bankruptcy screen: go back to the rescue snapshot taken before the crisis */
+  onRescue(): void;
   /** why a tool cannot be used right now (locked reward), or null */
   lockReason(tool: Tool): string | null;
 }
@@ -165,6 +167,8 @@ export class Hud {
   /** a small copy of the demand bars lives in the minimap head, where phones can see it */
   private rciCopies: { r: HTMLElement; c: HTMLElement; i: HTMLElement }[] = [];
   private lastDemand = { r: 0, c: 0, i: 0 };
+  private currentTool: Tool = 'query';
+  private toastTimer = 0;
   private toolButtons = new Map<Tool, HTMLButtonElement>();
   private groupButtons = new Map<string, { button: HTMLButtonElement; items: FlyoutItem[] }>();
   private speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#speed button[data-speed]'));
@@ -198,6 +202,7 @@ export class Hud {
     this.buildWelcome();
     this.bindMinimap();
     this.buildTutorial();
+    this.buildBankrupt();
     // the R C I demand bars, small, in the minimap head
     {
       const mk = (z: string) => h('div', { class: `bar ${z}` }, h('div', { class: 'fill' }));
@@ -270,7 +275,18 @@ export class Hud {
     for (const entry of toolbarEntries()) {
       if ('group' in entry) {
         const btn = h('button', { class: 'tool group-btn' }, h('span', { class: 'ico' }, entry.icon()), h('kbd', { text: '▸' }));
-        btn.addEventListener('click', () => this.toggleFlyout(entry.group, btn, entry.items));
+        btn.addEventListener('click', () => {
+          // a group picks its first tool at once (the list stays open to choose another);
+          // pressing it again while one of its tools is active goes back to the magnifier
+          if (entry.items.some((it) => it.tool === this.currentTool)) {
+            this.closeFlyout();
+            this.handlers.onTool(this.currentTool);
+            return;
+          }
+          const first = entry.items.find((it) => !this.handlers.lockReason(it.tool)) ?? entry.items[0];
+          this.handlers.onTool(first.tool);
+          if (this.openFlyout !== entry.group) this.toggleFlyout(entry.group, btn, entry.items);
+        });
         this.tooltip(btn, () => {
           const g = this.groupButtons.get(entry.group);
           const current = g?.button.dataset.current;
@@ -347,6 +363,7 @@ export class Hud {
   }
 
   setTool(tool: Tool): void {
+    this.currentTool = tool;
     for (const [tl, b] of this.toolButtons) b.classList.toggle('active', tl === tool);
     // on touch screens, a build tool shows what it expects and a way back to the magnifier
     const build = tool !== 'none' && tool !== 'query';
@@ -680,6 +697,22 @@ export class Hud {
     $('help-next').textContent = this.helpIndex === screens.length - 1 ? t('tuto.done') : t('tuto.next');
   }
 
+  // ---- bankruptcy -------------------------------------------------------------
+
+  openBankrupt(city: City, rescue: boolean): void {
+    this.closePanels();
+    $('help').hidden = true;
+    $('bankrupt-rescue').hidden = !rescue;
+    $('bankrupt-text').textContent = t('bankrupt.text', { name: city.name, floor: fmtMoney(city.diff.bankruptAt), months: BANKRUPT_MONTHS });
+    $('bankrupt').hidden = false;
+  }
+
+  private buildBankrupt(): void {
+    $('bankrupt-rescue').addEventListener('click', () => { $('bankrupt').hidden = true; this.handlers.onRescue(); });
+    $('bankrupt-load').addEventListener('click', () => { $('bankrupt').hidden = true; this.openPanel('panel-cities'); });
+    $('bankrupt-new').addEventListener('click', () => { $('bankrupt').hidden = true; this.openWelcome(false); });
+  }
+
   // ---- demand details -------------------------------------------------------
 
   /** The three demands with figures and a word of advice; opens by the minimap or under the top bar. */
@@ -851,8 +884,8 @@ export class Hud {
     set('parks', fmtMoney(b.parks)); set('transport', fmtMoney(b.transport)); set('ordinances', fmtMoney(b.ordinances));
     set('interest', fmtMoney(b.interest)); set('expenses', fmtMoney(expenses));
     set('net', `${net >= 0 ? '+' : ''}${fmtMoney(net)}`); set('funds', fmtMoney(city.money));
-    this.bondsInfo.textContent = t('budget.bondsInfo', { n: city.bonds });
-    this.bondIssue.disabled = city.bonds >= MAX_BONDS;
+    this.bondsInfo.textContent = t('budget.bondsInfo', { n: city.bonds, max: city.diff.maxBonds, rate: Math.round(city.diff.bondRate * 100) });
+    this.bondIssue.disabled = city.bonds >= city.diff.maxBonds;
     this.bondRepay.disabled = city.bonds === 0 || city.money < BOND_AMOUNT;
     for (const k of ORDINANCE_KEYS) {
       this.ordInputs[k].checked = city.ordinances[k];
@@ -875,6 +908,22 @@ export class Hud {
     } else {
       el.style.top = '50%';
       el.style.height = `${pct}%`;
+    }
+  }
+
+  /** A short floating message over the map, for refusals: readable even when the status bar is hidden. */
+  toast(text: string, kind: 'error' | 'info' = 'error'): void {
+    const el = $('toast');
+    el.textContent = text;
+    el.className = kind;
+    el.hidden = false;
+    window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => { el.hidden = true; }, 2600);
+    if (kind === 'error') {
+      const money = document.querySelector('.stat.money')!;
+      money.classList.remove('flash');
+      void (money as HTMLElement).offsetWidth;
+      if (text === t('reason.funds')) money.classList.add('flash');
     }
   }
 

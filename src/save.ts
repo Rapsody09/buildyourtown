@@ -4,6 +4,7 @@ const INDEX = 'citybuilder.index';
 const CURRENT = 'citybuilder.current';
 const PREFIX = 'citybuilder.city.';
 const LEGACY = 'citybuilder.save.v1';
+const RESCUE = 'citybuilder.rescue.';
 
 export interface SaveEntry {
   key: string;
@@ -62,8 +63,31 @@ export function loadCity(key: string): City | null {
 
 export function deleteSave(key: string): void {
   localStorage.removeItem(PREFIX + key);
+  localStorage.removeItem(RESCUE + key);
   writeIndex(readIndex().filter((e) => e.key !== key));
   if (getCurrentKey() === key) localStorage.removeItem(CURRENT);
+}
+
+/** Snapshot taken when a city first dips under its funds floor: the way back offered on bankruptcy. */
+export function saveRescue(city: City, key: string): void {
+  try {
+    localStorage.setItem(RESCUE + key, JSON.stringify(city.toJSON()));
+  } catch (e) {
+    console.warn('sauvegarde de secours impossible', e);
+  }
+}
+
+export function loadRescue(key: string): City | null {
+  try {
+    const raw = localStorage.getItem(RESCUE + key);
+    return raw ? City.fromJSON(JSON.parse(raw) as SavedCity) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function hasRescue(key: string): boolean {
+  try { return localStorage.getItem(RESCUE + key) !== null; } catch { return false; }
 }
 
 export function getCurrentKey(): string | null {

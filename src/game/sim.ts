@@ -3,7 +3,7 @@ import { disasterMonth, disasterTick } from './disasters';
 import { t } from '../i18n';
 import { STRUCTS, structName } from './structs';
 import {
-  BOND_AMOUNT, COST, DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, MAX_LEVEL, MAX_TRIP, NO_ROAD, ORDINANCES, ORDINANCE_KEYS, Overlay, POP_PER_LEVEL, POWER_USE, ROAD_CAPACITY, ROAD_REACH, START_YEAR, TICKS_PER_MONTH, Terrain, isZone, type ZoneType,
+  BANKRUPT_MONTHS, BOND_AMOUNT, COST, DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, MAX_LEVEL, MAX_TRIP, NO_ROAD, ORDINANCES, ORDINANCE_KEYS, Overlay, POP_PER_LEVEL, POWER_USE, ROAD_CAPACITY, ROAD_REACH, START_YEAR, TICKS_PER_MONTH, Terrain, isZone, type ZoneType,
 } from './types';
 
 const MILESTONES = [1000, 2500, 5000, 10000, 25000, 50000, 100000];
@@ -173,6 +173,18 @@ function recordMonth(city: City): void {
     }
   }
   if (stats.pop > city.maxPop) city.maxPop = stats.pop;
+  // bankruptcy: too many months in a row under the difficulty's funds floor
+  if (!city.bankrupt) {
+    if (city.money < city.diff.bankruptAt) {
+      city.brokeMonths++;
+      if (city.brokeMonths >= BANKRUPT_MONTHS) {
+        city.bankrupt = true;
+        city.addLog('log.bankrupt', {}, 'disaster');
+      }
+    } else {
+      city.brokeMonths = 0;
+    }
+  }
   // the fire count changes every month and would flood the log; the fire itself is logged when it starts
   const first = adviceKeys(city)[0];
   // a piece of advice is logged once, then again only if it left the journal's last 12 entries
@@ -733,7 +745,7 @@ export function recomputeTraffic(city: City): { toJobs: { dist: Float32Array; ne
 }
 
 export function issueBond(city: City): boolean {
-  if (city.bonds >= 10) return false;
+  if (city.bonds >= city.diff.maxBonds) return false;
   city.bonds++;
   city.money += BOND_AMOUNT;
   return true;
@@ -759,7 +771,8 @@ export function adviceKeys(city: City): Advice[] {
   const zonedTotal = stats.zoned[Overlay.Res] + stats.zoned[Overlay.Com] + stats.zoned[Overlay.Ind];
   const add = (key: string, params?: Record<string, string | number>) => out.push({ key, params });
   if (city.burning > 0) add('advice.fire', { n: city.burning });
-  if (city.money < 0) add('advice.broke');
+  if (!city.bankrupt && city.money < city.diff.bankruptAt) add('advice.bankruptSoon', { months: BANKRUPT_MONTHS - city.brokeMonths });
+  else if (city.money < 0) add('advice.broke');
   if (zonedTotal > 0 && power.supply === 0) add('advice.noPlant');
   else if (power.demand > power.supply && power.supply > 0) add('advice.powerShort');
   else if (stats.unpowered > zonedTotal * 0.2) add('advice.unconnected');

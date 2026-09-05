@@ -12,9 +12,7 @@ import {
 } from './game/types';
 import { fmtInt, fmtMoney, setLang, t, type Lang } from './i18n';
 import { Renderer } from './render/renderer';
-import {
-  deleteSave, getCurrentKey, listSaves, loadCity, migrateLegacy, newKey, saveCity, setCurrentKey,
-} from './save';
+import { deleteSave, getCurrentKey, hasRescue, listSaves, loadCity, loadRescue, migrateLegacy, newKey, saveCity, saveRescue, setCurrentKey } from './save';
 import { Hud, type QueryInfo } from './ui/hud';
 import { attachInput } from './ui/input';
 
@@ -67,6 +65,8 @@ let unsaved = false;
 let touchPending: Pt | null = null;
 /** a held finger carries a building around: it is placed where the finger lets go */
 let holdPlacing = false;
+/** months under the funds floor at the last month end: a 0 -> 1 step takes the rescue snapshot */
+let lastBroke = 0;
 
 const hud = new Hud({
   onTool: setTool,
@@ -99,6 +99,16 @@ const hud = new Hud({
   },
   onOrdinance: (key, enabled) => { city.ordinances[key] = enabled; unsaved = true; hud.update(city); },
   onMinimap: (x, y) => { renderer.centerOnTile(x, y); dirty = true; },
+  onRescue: () => {
+    const back = currentKey ? loadRescue(currentKey) : null;
+    if (!back || !currentKey) return;
+    city = back;
+    startCity();
+    saveCity(city, currentKey);
+    hud.setCityList(listSaves(), currentKey);
+    setSpeed(1);
+    hud.setStatus(t('status.rescued', { name: city.name }));
+  },
   onLang: (l: Lang) => { autosave(); setLang(l); location.reload(); },
   lockReason: (tl) => {
     if (!isStructTool(tl)) return null;
@@ -173,6 +183,8 @@ function startCity(): void {
   hud.update(city);
   hud.showQuery(null);
   setDataMap('none');
+  lastBroke = city.brokeMonths;
+  if (city.bankrupt) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); }
   dirty = true;
   unsaved = false;
 }
@@ -209,6 +221,7 @@ function commitPlan(): void {
     unsaved = true;
   } else {
     hud.setStatus(res.reason, true);
+    hud.toast(res.reason);
   }
 }
 
@@ -373,6 +386,9 @@ function frame(now: number): void {
       if (r.monthEnded) {
         hud.update(city);
         if (r.messages.length) hud.setStatus(r.messages[0]);
+        if (!demoMode && currentKey && city.brokeMonths === 1 && lastBroke === 0 && !city.bankrupt) saveRescue(city, currentKey);
+        lastBroke = city.brokeMonths;
+        if (city.bankrupt) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); break; }
       }
     }
     if (steps === 8) acc = 0;
@@ -460,6 +476,9 @@ function boot(): void {
 }
 
 boot();
+
+
+
 
 
 

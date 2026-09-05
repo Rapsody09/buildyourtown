@@ -84,6 +84,17 @@
     </div>
   </aside>
 
+  <div id="bankrupt" class="modal" hidden>
+    <div class="tutorial bankrupt" role="dialog" aria-modal="true">
+      <div class="head"><h2 data-i18n="bankrupt.title">Faillite</h2></div>
+      <div class="body"><p id="bankrupt-text"></p></div>
+      <div class="foot actions">
+        <button id="bankrupt-rescue" type="button" class="primary" data-i18n="bankrupt.rescue">Reprendre avant la crise</button>
+        <button id="bankrupt-load" type="button" data-i18n="bankrupt.load">Mes villes</button>
+        <button id="bankrupt-new" type="button" data-i18n="bankrupt.new">Nouvelle ville</button>
+      </div>
+    </div>
+  </div>
   <div id="help" class="modal" hidden>
     <div class="tutorial" role="dialog" aria-modal="true">
       <div class="head"><h2 id="help-title"></h2><button id="help-close" type="button" aria-label="Fermer">✕</button></div>
@@ -124,6 +135,7 @@
     </form>
   </div>
 
+  <div id="toast" hidden></div>
   <div id="minimap"><div class="head"><span id="minimap-name" data-i18n="minimap.title">Carte</span><button id="minimap-maps" type="button" data-i18n-title="btn.maps" title="Cartes">🗺️</button></div><canvas id="minimap-canvas" width="256" height="128" data-i18n-title="minimap" title="Carte : appuyez pour vous y rendre"></canvas></div>
   <footer id="statusbar">
     <span class="left"><span id="version" class="version"></span><span id="date-mobile" class="version"></span><span id="status"></span><button id="tool-pill" type="button" hidden><span class="txt"></span><span class="x">✕</span></button></span>

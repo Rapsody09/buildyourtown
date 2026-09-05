@@ -67,7 +67,6 @@ export const HIGHWAY_CAPACITY = 4800;
 export const MAX_TRIP = 60;
 
 export const BOND_AMOUNT = 10000;
-export const MAX_BONDS = 10;
 
 export const START_YEAR = 1900;
 export const DEFAULT_TAX = 7;
@@ -80,15 +79,21 @@ export interface DifficultyDef {
   costMul: number;
   /** multiplies the odds of random disasters */
   disasterMul: number;
+  /** funds floor: staying below it for BANKRUPT_MONTHS months loses the game */
+  bankruptAt: number;
+  /** how many bonds may be outstanding at once */
+  maxBonds: number;
   /** yearly interest on bonds */
   bondRate: number;
 }
 export const DIFFICULTIES: Record<'facile' | 'moyen' | 'difficile', DifficultyDef> = {
-  facile: { money: 20000, demandMul: 1.15, costMul: 0.85, disasterMul: 0.5, bondRate: 0.05 },
-  moyen: { money: 10000, demandMul: 1.0, costMul: 1.0, disasterMul: 1.0, bondRate: 0.06 },
-  difficile: { money: 5000, demandMul: 0.85, costMul: 1.25, disasterMul: 1.6, bondRate: 0.08 },
+  facile: { money: 20000, demandMul: 1.15, costMul: 0.85, disasterMul: 0.5, bondRate: 0.05, bankruptAt: -10000, maxBonds: 5 },
+  moyen: { money: 10000, demandMul: 1.0, costMul: 1.0, disasterMul: 1.0, bondRate: 0.06, bankruptAt: -5000, maxBonds: 3 },
+  difficile: { money: 5000, demandMul: 0.85, costMul: 1.25, disasterMul: 1.6, bondRate: 0.08, bankruptAt: 0, maxBonds: 2 },
 };
 export type Difficulty = keyof typeof DIFFICULTIES;
+/** months in a row under the difficulty's funds floor before the council removes the mayor */
+export const BANKRUPT_MONTHS = 6;
 
 export const POP_PER_LEVEL = [0, 8, 16, 32, 64, 128];
 export const JOBS_C_PER_LEVEL = [0, 6, 12, 24, 48, 96];
