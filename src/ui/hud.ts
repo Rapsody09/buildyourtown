@@ -198,6 +198,29 @@ export class Hud {
     this.buildWelcome();
     this.bindMinimap();
     this.toolPill.addEventListener('click', () => this.handlers.onTool('query'));
+    // the top bar figures open what explains them: funds -> budget, population -> journal, date -> speed
+    document.querySelector('.stat.money')!.addEventListener('click', () => $('btn-budget').click());
+    document.querySelector('.stat.pop')!.addEventListener('click', () => $('btn-journal').click());
+    const speedBox = $('speed');
+    const toggleSpeed = () => { const show = !speedBox.classList.contains('show'); this.closePanels(); speedBox.classList.toggle('show', show); };
+    document.querySelector('.stat.date')!.addEventListener('click', toggleSpeed);
+    $('date-mobile').addEventListener('click', toggleSpeed);
+    for (const b of this.speedButtons) b.addEventListener('click', () => speedBox.classList.remove('show'));
+    // data maps are one tap away from the minimap
+    $('minimap-maps').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const menu = $('maps-menu');
+      const wasHidden = menu.hidden;
+      this.closePanels();
+      menu.hidden = !wasHidden;
+      menu.classList.toggle('near-minimap', !isMobile());
+      if (!isMobile()) {
+        const r = $('minimap').getBoundingClientRect();
+        menu.style.top = `${Math.max(8, r.top - menu.offsetHeight - 8)}px`;
+      } else {
+        menu.style.top = '';
+      }
+    });
 
     for (const b of this.speedButtons) {
       b.addEventListener('click', () => handlers.onSpeed(Number(b.dataset.speed)));
@@ -340,6 +363,8 @@ export class Hud {
 
   setSpeed(speed: number): void {
     for (const b of this.speedButtons) b.classList.toggle('active', Number(b.dataset.speed) === speed);
+    $('date').classList.toggle('paused', speed === 0);
+    $('date-mobile').classList.toggle('paused', speed === 0);
   }
 
   // ---- panels --------------------------------------------------------------
@@ -357,6 +382,7 @@ export class Hud {
     if (el.classList.contains('menu')) {
       // drop-down menus open next to the button that owns them (bottom sheet on phones)
       if (isMobile()) { el.style.top = ''; return; }
+      el.classList.remove('near-minimap');
       const owner = id === 'maps-menu' ? $('btn-maps') : $('btn-disasters');
       const top = owner.getBoundingClientRect().top;
       el.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 40 - el.offsetHeight))}px`;
@@ -365,6 +391,7 @@ export class Hud {
 
   closePanels(): void {
     for (const id of ['panel-budget', 'maps-menu', 'panel-cities', 'panel-journal', 'disasters-menu']) $(id).hidden = true;
+    $('speed').classList.remove('show');
     this.closeFlyout();
   }
 
@@ -453,6 +480,8 @@ export class Hud {
       b.classList.toggle('active', b.dataset.map === map);
     }
     $('btn-maps').classList.toggle('active', map !== 'none');
+    $('minimap-maps').classList.toggle('active', map !== 'none');
+    $('minimap-name').textContent = map === 'none' ? t('minimap.title') : t(`map.${map}`);
     this.legend.textContent = map === 'none' ? '' : t('legend', { name: t(`map.${map}`) });
   }
 
@@ -663,7 +692,7 @@ export class Hud {
   }
 
   private bindMinimap(): void {
-    const box = $('minimap');
+    const box = this.minimap;
     box.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       const r = this.minimap.getBoundingClientRect();

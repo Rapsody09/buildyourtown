@@ -89,7 +89,9 @@ Un appui long pose un bâtiment, qui suit le doigt jusqu'au relâchement, ou
 trace une route, une zone ou une ligne en glissant. Un appui bref renseigne
 sur une case avec la loupe, ou montre l'aperçu d'un bâtiment qu'un second appui
 confirme. La mini-carte en bas à droite montre où l'on se trouve : appuyer
-dessus déplace la vue.
+dessus déplace la vue, et son bouton ouvre les cartes de données. Dans le
+bandeau, les fonds ouvrent le budget, la population le journal et la date les
+commandes de vitesse.
 
 ### Ce qui fait vivre la ville
 

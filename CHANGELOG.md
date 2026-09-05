@@ -3,6 +3,17 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.3.3 — 2026-09-05
+
+- Les chiffres du bandeau ouvrent ce qui les explique : les fonds le budget,
+  la population le journal, la date les commandes de vitesse.
+- Sur mobile, les boutons de vitesse ne s'affichent qu'en appuyant sur la
+  date ; en pause, un symbole l'indique à côté de la date.
+- La mini-carte a un bouton qui ouvre les cartes de données et affiche le nom
+  de la carte active.
+- Sur mobile, les volets passent devant la mini-carte : le menu Villes n'est
+  plus caché.
+
 ## 0.3.2 — 2026-09-05
 
 - Les zones encore vides se voient enfin : hachures, contour marqué et lettre

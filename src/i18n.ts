@@ -145,6 +145,7 @@ const D: Record<string, [string, string]> = {
   'touch.tool.drag': ['{name} · appui long pour tracer', '{name} · press and hold to draw'],
   'touch.tool.tap': ['{name} · appui long pour poser', '{name} · press and hold to place'],
   'touch.release': ['Relâchez pour poser', 'Release to place'],
+  'minimap.title': ['Carte', 'Map'],
   'minimap': ['Carte : appuyez pour vous y rendre', 'Map: tap to go there'],
 
   // ---- top bar & menus
