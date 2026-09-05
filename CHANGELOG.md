@@ -3,6 +3,14 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.4.1 — 2026-09-05
+
+- Caserne redessinée : bâtiment en brique, aile à trois garages dont un ouvert
+  d'où sort le camion, tour de séchage, drapeau.
+- Port redessiné et tourné vers l'eau : quai, entrepôt, conteneurs, portique.
+- Portes et fenêtres des maisons dessinées dans le plan des façades.
+- Boutons de vitesse de même taille sur tous les écrans.
+
 ## 0.4.0 — 2026-09-05
 
 La ville s'anime.

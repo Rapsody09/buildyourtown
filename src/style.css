@@ -117,10 +117,11 @@ button.lang { height: 42px; }
 #btn-cities { display: inline-flex; align-items: center; max-width: 200px; gap: 6px; font-family: var(--font-head); font-weight: 800; }
 #btn-cities .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #btn-cities .caret { color: var(--muted); font-size: 12px; }
-#speed button { border-radius: 0; width: 46px; padding: 0; font-size: 13px; letter-spacing: -1px; }
-/* pause drawn as two bars, so it matches the play glyphs in weight and height */
-#speed button.pause { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+#speed button { border-radius: 0; width: 46px; padding: 0; display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+/* pause and play drawn in CSS, so bars and triangles share one height on every screen */
 #speed button.pause i { display: block; width: 4px; height: 13px; border-radius: 1px; background: currentColor; }
+#speed button .tri { display: block; width: 0; height: 0; border-style: solid; border-width: 6.5px 0 6.5px 10px; border-color: transparent transparent transparent currentColor; }
+#speed button .tri + .tri { margin-left: -1px; }
 #speed button:first-child { border-radius: 10px 0 0 10px; }
 #speed button:last-child { border-radius: 0 10px 10px 0; }
 input[type="range"] { width: 90px; margin: 0; accent-color: var(--accent); }

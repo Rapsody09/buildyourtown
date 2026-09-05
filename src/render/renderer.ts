@@ -184,6 +184,7 @@ export class Renderer {
           let key = `st:${s.type}`;
           if (s.type === 'wind' && animate) key = `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}`;
           else if (s.type === 'station' && this.stationAlongY(city, s.x, s.y, n)) key = 'st:station:1';
+          else if (s.type === 'port') key = `st:port:${this.portSide(city, s.x, s.y, n)}`;
           else if (s.type === 'park') {
             const variant = hash2(s.x, s.y, 11) & 3;
             key = `park:${this.parkMask(city, s.x, s.y)}:${variant}:${variant === 2 && animate ? Math.floor(time / 260) % 3 : 0}`;
@@ -533,6 +534,21 @@ export class Renderer {
   private parkMask(city: City, x: number, y: number): number {
     const park = (xx: number, yy: number) => city.inBounds(xx, yy) && city.overlay[city.idx(xx, yy)] === Overlay.Struct && city.structAt(city.idx(xx, yy))?.type === 'park';
     return (park(x, y - 1) ? 1 : 0) | (park(x + 1, y) ? 2 : 0) | (park(x, y + 1) ? 4 : 0) | (park(x - 1, y) ? 8 : 0);
+  }
+
+  /** Which side of the port touches the most water: 0 = +y, 1 = +x, 2 = -y, 3 = -x (the quay faces it). */
+  private portSide(city: City, x: number, y: number, n: number): number {
+    const water = (xx: number, yy: number) => city.inBounds(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Water ? 1 : 0;
+    const counts = [0, 0, 0, 0];
+    for (let k = 0; k < n; k++) {
+      counts[0] += water(x + k, y + n);
+      counts[1] += water(x + n, y + k);
+      counts[2] += water(x + k, y - 1);
+      counts[3] += water(x - 1, y + k);
+    }
+    let best = 0;
+    for (let i = 1; i < 4; i++) if (counts[i] > counts[best]) best = i;
+    return best;
   }
 
   /** Does the track next to a station run along y (more rail tiles beside its x sides than its y sides)? */

@@ -685,7 +685,7 @@ class Scene {
     });
   }
 
-  house(u0: number, v0: number, u1: number, v1: number, h: number, rh: number, wall: string, roof: string): void {
+  house(u0: number, v0: number, u1: number, v1: number, h: number, rh: number, wall: string, roof: string, opts: { door?: boolean; chimney?: boolean } = {}): void {
     const ctx = this.ctx;
     const tint = this.tint;
     this.elems.push({
@@ -695,19 +695,22 @@ class Scene {
         const vm = (v0 + v1) / 2;
         poly(ctx, [P(u0, v1), P(u1, v1), P(u1, v1, h), P(u0, v1, h)], shade(wall, 0.9 * tint), edge);
         poly(ctx, [P(u1, v0), P(u1, v1), P(u1, v1, h), P(u1, vm, h + rh), P(u1, v0, h)], shade(wall, 0.7 * tint), edge);
-        const [dx, dy] = P(u0 + (u1 - u0) * 0.3, v1);
-        ctx.fillStyle = '#34495e';
-        ctx.fillRect(dx - 1.5, dy - 6, 3, 6);
-        const [wx, wy] = P(u0 + (u1 - u0) * 0.7, v1, h * 0.55);
-        ctx.fillStyle = '#d9e6f2';
-        ctx.fillRect(wx - 2, wy - 2, 4, 3);
+        if (opts.door !== false) {
+          // door and window drawn in the plane of the front wall
+          const w = u1 - u0;
+          poly(ctx, [P(u0 + w * 0.22, v1, 0), P(u0 + w * 0.38, v1, 0), P(u0 + w * 0.38, v1, 6), P(u0 + w * 0.22, v1, 6)], '#34495e');
+          const wz = h * 0.45;
+          poly(ctx, [P(u0 + w * 0.6, v1, wz), P(u0 + w * 0.8, v1, wz), P(u0 + w * 0.8, v1, wz + 3.5), P(u0 + w * 0.6, v1, wz + 3.5)], '#d9e6f2');
+        }
         poly(ctx, [P(u0, v0, h), P(u1, v0, h), P(u1, vm, h + rh), P(u0, vm, h + rh)], shade(roof, 1.08 * tint), edge);
         poly(ctx, [P(u0, vm, h + rh), P(u1, vm, h + rh), P(u1, v1, h), P(u0, v1, h)], shade(roof, 0.84 * tint), edge);
-        // chimney near the ridge
-        const cu = u0 + (u1 - u0) * 0.72, cw = 0.07, cz = h + rh * 0.55, ct = h + rh + 3;
-        poly(ctx, [P(cu, vm + cw, cz), P(cu + cw, vm + cw, cz), P(cu + cw, vm + cw, ct), P(cu, vm + cw, ct)], '#9a9a9a', edge);
-        poly(ctx, [P(cu + cw, vm - cw, cz), P(cu + cw, vm + cw, cz), P(cu + cw, vm + cw, ct), P(cu + cw, vm - cw, ct)], '#7a7a7a', edge);
-        poly(ctx, [P(cu, vm - cw, ct), P(cu + cw, vm - cw, ct), P(cu + cw, vm + cw, ct), P(cu, vm + cw, ct)], '#b5b5b5', edge);
+        if (opts.chimney !== false) {
+          // chimney near the ridge
+          const cu = u0 + (u1 - u0) * 0.72, cw = 0.07, cz = h + rh * 0.55, ct = h + rh + 3;
+          poly(ctx, [P(cu, vm + cw, cz), P(cu + cw, vm + cw, cz), P(cu + cw, vm + cw, ct), P(cu, vm + cw, ct)], '#9a9a9a', edge);
+          poly(ctx, [P(cu + cw, vm - cw, cz), P(cu + cw, vm + cw, cz), P(cu + cw, vm + cw, ct), P(cu + cw, vm - cw, ct)], '#7a7a7a', edge);
+          poly(ctx, [P(cu, vm - cw, ct), P(cu + cw, vm - cw, ct), P(cu + cw, vm + cw, ct), P(cu, vm + cw, ct)], '#b5b5b5', edge);
+        }
       },
     });
   }
@@ -1547,15 +1550,79 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
       });
       break;
     case 'fire':
-      s.box(0.4, 0.7, 2.6, 2.3, 20, '#c9524a', '#8f2f2a', { windows: true });
-      s.custom(40, (c) => {
+      // apron in front, two-storey brick block, lower garage wing with three doors, hose tower, truck
+      s.custom(-2, (c) => poly(c, [P(0.3, 2.3), P(2.65, 2.3), P(2.65, 3), P(0.3, 3)], '#b7bcc4'));
+      s.box(0.35, 0.35, 2.6, 1.4, 22, '#c9524a', '#8f2f2a', { windows: true, floors: true });
+      s.box(0.35, 1.4, 2.6, 2.3, 13, '#d6605a', '#9a3a34');
+      s.box(0.35, 1.4, 2.6, 2.3, 1.5, '#f0e6d8', '#f0e6d8', { z0: 13 });
+      s.custom(2, (c) => {
         for (let k = 0; k < 3; k++) {
-          const u0 = 0.55 + k * 0.7;
-          poly(c, [P(u0, 2.3, 0), P(u0 + 0.5, 2.3, 0), P(u0 + 0.5, 2.3, 12), P(u0, 2.3, 12)], '#e8e2d6');
+          const u0 = 0.5 + k * 0.72, u1 = u0 + 0.56;
+          poly(c, [P(u0 - 0.04, 2.3, 0), P(u1 + 0.04, 2.3, 0), P(u1 + 0.04, 2.3, 11.5), P(u0 - 0.04, 2.3, 11.5)], '#f0e6d8');
+          if (k === 0) {
+            // first bay open: dark inside, shutter rolled up under the lintel; the truck drives out of it
+            poly(c, [P(u0, 2.3, 0), P(u1, 2.3, 0), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#2a2f3a');
+            poly(c, [P(u0, 2.3, 8.5), P(u1, 2.3, 8.5), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#c9ced6');
+            continue;
+          }
+          poly(c, [P(u0, 2.3, 0), P(u1, 2.3, 0), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#c9ced6');
+          c.strokeStyle = 'rgba(0,0,0,0.25)';
+          c.lineWidth = 0.8;
+          for (const z of [3, 6, 9]) {
+            const [ax, ay] = P(u0, 2.3, z), [bx, by] = P(u1, 2.3, z);
+            c.beginPath();
+            c.moveTo(ax, ay);
+            c.lineTo(bx, by);
+            c.stroke();
+          }
         }
       });
-      s.box(2.15, 0.2, 2.75, 0.8, 40, '#b34a43', '#7a2b27');
-      s.beacon(2.45, 0.5, 42, '#ff3b30');
+      // hose tower set against the main block, not inside it: a door at its foot, small windows up the side
+      s.house(2.62, 0.28, 2.98, 0.72, 38, 8, '#b34a43', '#4a4f57', { door: false, chimney: false });
+      s.custom(3.1, (c) => {
+        poly(c, [P(2.72, 0.72, 0), P(2.88, 0.72, 0), P(2.88, 0.72, 7), P(2.72, 0.72, 7)], '#34495e');
+        for (const z of [12, 22, 31]) poly(c, [P(2.98, 0.42, z), P(2.98, 0.58, z), P(2.98, 0.58, z + 4), P(2.98, 0.42, z + 4)], '#d9e6f2');
+      });
+      s.beacon(2.8, 0.5, 47, '#ff3b30');
+      // the truck pulls out of the first bay, nose toward the viewer: its back is in the doorway
+      for (const v of [2.4, 2.84]) for (const u of [0.58, 0.9]) s.box(u, v, u + 0.06, v + 0.1, 2.5, '#2b2f36', '#2b2f36');
+      s.box(0.62, 2.31, 0.92, 2.76, 7, '#d63c3c', '#b83232', { z0: 2 });
+      s.box(0.62, 2.76, 0.92, 3.0, 8, '#d63c3c', '#b83232', { z0: 2 });
+      s.custom(20, (c) => {
+        poly(c, [P(0.92, 2.33, 4.3), P(0.92, 2.98, 4.3), P(0.92, 2.98, 5.5), P(0.92, 2.33, 5.5)], '#f4f4f4');
+        poly(c, [P(0.92, 2.79, 6.2), P(0.92, 2.97, 6.2), P(0.92, 2.97, 9), P(0.92, 2.79, 9)], '#a9dcff');
+        poly(c, [P(0.65, 3.0, 6.2), P(0.89, 3.0, 6.2), P(0.89, 3.0, 9.2), P(0.65, 3.0, 9.2)], '#a9dcff');
+        poly(c, [P(0.64, 3.0, 3), P(0.7, 3.0, 3), P(0.7, 3.0, 4.2), P(0.64, 3.0, 4.2)], '#fff6cc');
+        poly(c, [P(0.84, 3.0, 3), P(0.9, 3.0, 3), P(0.9, 3.0, 4.2), P(0.84, 3.0, 4.2)], '#fff6cc');
+        c.strokeStyle = '#c9ced6';
+        c.lineWidth = 1;
+        for (const u of [0.69, 0.85]) {
+          const [ax, ay] = P(u, 2.35, 9.6), [bx, by] = P(u, 2.72, 9.6);
+          c.beginPath();
+          c.moveTo(ax, ay);
+          c.lineTo(bx, by);
+          c.stroke();
+        }
+        for (let v = 2.39; v < 2.72; v += 0.09) {
+          const [ax, ay] = P(0.69, v, 9.6), [bx, by] = P(0.85, v, 9.6);
+          c.beginPath();
+          c.moveTo(ax, ay);
+          c.lineTo(bx, by);
+          c.stroke();
+        }
+      });
+      s.box(0.72, 2.84, 0.82, 2.94, 1.5, '#3d7fe0', '#5fa0ff', { z0: 10 });
+      s.beacon(0.77, 2.89, 11.5, '#3d7fe0');
+      s.custom(50, (c) => {
+        const [x0, y0] = P(2.5, 2.8), [x1, y1] = P(2.5, 2.8, 24);
+        c.strokeStyle = '#d8dde3';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.lineTo(x1, y1);
+        c.stroke();
+        poly(c, [[x1, y1], [x1 + 9, y1 + 2], [x1, y1 + 5]], '#e04848');
+      });
       break;
     case 'school':
       s.box(0.3, 0.3, 2.7, 1.3, 16, '#f4e3a1', '#e07b39', { windows: true });
@@ -1582,29 +1649,66 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
       s.box(0.3, 1.5, 1.3, 1.9, 8, '#f2c14e', '#d9a93a');
       s.box(1.5, 1.55, 1.85, 1.85, 6, '#f2c14e', '#d9a93a');
       break;
-    case 'port':
-      s.box(0.2, 0.2, 1.6, 1.2, 16, '#8fa3ad', '#6f7f8a', { windows: true });
-      s.box(0.3, 1.6, 0.9, 2.0, 8, '#d94141', '#b53232');
-      s.box(1.0, 1.6, 1.6, 2.0, 8, '#3a6fd8', '#2d58ad');
-      s.box(0.3, 2.2, 0.9, 2.6, 8, '#8ccf6a', '#6faa50');
-      s.box(2.3, 2.3, 2.55, 2.55, 50, '#c9503a', '#a33d2b');
+    case 'port': {
+      // the quay side faces the water: `frame` is the side (0 = +v, 1 = +u, 2 = -v, 3 = -u).
+      // (a, b): a runs along the quay, b goes from the back (0) to the water (3)
+      const side = frame % 4;
+      const R = (a0: number, b0: number, a1: number, b1: number): [number, number, number, number] =>
+        side === 0 ? [a0, b0, a1, b1] : side === 1 ? [b0, a0, b1, a1] : side === 2 ? [a0, 3 - b1, a1, 3 - b0] : [3 - b1, a0, 3 - b0, a1];
+      const pt = (a: number, b: number, z = 0): Pt2 =>
+        side === 0 ? P(a, b, z) : side === 1 ? P(b, a, z) : side === 2 ? P(a, 3 - b, z) : P(3 - b, a, z);
+      s.box(0.05, 0.05, 2.95, 2.95, 2, '#8f959c', '#b5bac0');
+      s.box(...R(0.25, 0.25, 1.75, 1.35), 15, '#d5dbe2', '#5d7a92', { z0: 2, windows: true });
+      s.box(...R(0.25, 0.25, 1.75, 0.35), 3, '#5d7a92', '#4b6578', { z0: 17 });
+      s.box(...R(0.25, 1.25, 1.75, 1.35), 3, '#5d7a92', '#4b6578', { z0: 17 });
+      s.custom(10, (c) => {
+        c.strokeStyle = 'rgba(0,0,0,0.18)';
+        c.lineWidth = 1;
+        for (let k = 1; k < 6; k++) {
+          const [ax, ay] = pt(0.25 + k * 0.25, 0.25, 17), [bx, by] = pt(0.25 + k * 0.25, 1.35, 17);
+          c.beginPath();
+          c.moveTo(ax, ay);
+          c.lineTo(bx, by);
+          c.stroke();
+        }
+      });
+      {
+        const cols = ['#e0603a', '#3a6fd8', '#3fa845', '#f2c14e', '#8c5bd8', '#20a6b8'];
+        let k = 0;
+        for (const a of [1.95, 2.3, 2.65]) for (const b of [0.3, 0.75, 1.2]) {
+          s.box(...R(a, b, a + 0.28, b + 0.38), 7, cols[k % 6], shade(cols[k % 6], 0.85), { z0: 2 });
+          if (k % 3 !== 1) s.box(...R(a, b, a + 0.28, b + 0.38), 7, cols[(k + 2) % 6], shade(cols[(k + 2) % 6], 0.85), { z0: 9 });
+          k++;
+        }
+      }
+      s.box(...R(0.55, 2.3, 0.69, 2.44), 38, '#c9503a', '#a33d2b', { z0: 2 });
+      s.box(...R(1.85, 2.3, 1.99, 2.44), 38, '#c9503a', '#a33d2b', { z0: 2 });
+      s.box(...R(0.2, 2.32, 2.85, 2.42), 4, '#c9503a', '#d9634c', { z0: 40 });
       s.custom(100, (c) => {
-        const [x0, y0] = P(2.42, 2.42, 50);
-        const [x1, y1] = P(2.42, 0.3, 46);
-        c.strokeStyle = '#c9503a';
-        c.lineWidth = 2;
-        c.beginPath();
-        c.moveTo(x0, y0);
-        c.lineTo(x1, y1);
-        c.stroke();
+        const [tx, ty] = pt(2.55, 2.37, 40);
+        c.fillStyle = '#5a5f66';
+        c.fillRect(tx - 3, ty - 1, 6, 3);
         c.strokeStyle = '#333';
         c.lineWidth = 1;
         c.beginPath();
-        c.moveTo(x1, y1);
-        c.lineTo(x1, y1 + 18);
+        c.moveTo(tx, ty + 2);
+        c.lineTo(tx, ty + 18);
         c.stroke();
+        c.fillStyle = '#f2c14e';
+        c.fillRect(tx - 4, ty + 18, 8, 5);
+        const [lx, ly] = pt(0.62, 2.37, 42);
+        c.fillStyle = '#ff3b30';
+        c.beginPath();
+        c.arc(lx, ly - 4, 1.2, 0, Math.PI * 2);
+        c.fill();
       });
+      for (const a of [0.4, 1.2, 2.0, 2.7]) {
+        const [cu, cv] = R(a, 2.82, a, 2.82);
+        s.cylinder(cu, cv, 0.05, 3, '#3d4654', '#5a6270', { z0: 2 });
+      }
+      s.box(...R(1.1, 1.75, 1.7, 2.05), 6, '#f2c14e', '#d9a520', { z0: 2 });
       break;
+    }
     case 'airport':
       s.custom(-2, (c) => {
         poly(c, [P(0.2, 2.9), P(3.8, 2.9), P(3.8, 3.7), P(0.2, 3.7)], '#4a4e54');
