@@ -3,6 +3,23 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.1.1 — 2026-09-05
+
+Réglages d'interface et de confort après la première mise en ligne.
+
+- Écran d'accueil : la difficulté se choisit avec un curseur, les détails de
+  chaque niveau apparaissent au survol.
+- Barre d'outils en grandes icônes avec infobulle ; la ligne haute tension
+  rejoint le groupe Énergie ; le bulldozer a son pictogramme ; le menu Villes
+  reste en haut à droite avec les sauvegardes.
+- Les pastilles « pas de route », « pas de courant » et « pas d'eau » sont
+  nettement plus lisibles.
+- Le château d'eau tient d'aplomb sur ses poteaux.
+- Zoom intermédiaire entre 1 et 2.
+- Le courant franchit désormais une voie ferrée ou une autoroute comme il
+  franchit une route.
+- Ville de démonstration au contour naturel, sans catastrophe aléatoire.
+
 ## 0.1.0 — 2026-09-05
 
 Première version publique.
