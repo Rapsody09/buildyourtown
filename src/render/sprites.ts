@@ -571,13 +571,13 @@ class Scene {
   tint = 1;
   constructor(private ctx: Ctx, private seed: number) {}
 
-  box(u0: number, v0: number, u1: number, v1: number, h: number, wall: string, top: string, opts: { z0?: number; windows?: boolean; floors?: boolean; roof?: boolean } = {}): void {
+  box(u0: number, v0: number, u1: number, v1: number, h: number, wall: string, top: string, opts: { z0?: number; windows?: boolean; floors?: boolean; roof?: boolean; key?: number } = {}): void {
     const z0 = opts.z0 ?? 0;
     const ctx = this.ctx;
     const seed = this.seed;
     const tint = this.tint;
     this.elems.push({
-      key: u0 + v0 + (z0 > 0 ? 10 : 0),
+      key: opts.key ?? u0 + v0 + (z0 > 0 ? 10 : 0),
       draw: () => {
         const edge = 'rgba(0,0,0,0.28)';
         const zt = z0 + h;
@@ -1460,7 +1460,22 @@ function parkTile(s: Scene, mask: number, variant: number, frame = 0): void {
   }
 }
 
-function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
+/** Round wheels seen on the visible side of a parked vehicle: tyre and hub, at (u, v) on the ground. */
+function wheels(c: Ctx, at: [number, number][], r: number): void {
+  for (const [u, v] of at) {
+    const [x, y] = P(u, v, r * 0.8);
+    c.fillStyle = '#1d1f23';
+    c.beginPath();
+    c.ellipse(x, y, r, r * 0.9, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = '#9aa0a6';
+    c.beginPath();
+    c.ellipse(x, y, r * 0.4, r * 0.36, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+function drawStruct(ctx: Ctx, type: StructType, frame = 0, variant = 0, mask = 0): void {
   // the station turns to run along the track it serves
   if (type === 'station' && frame === 1) SWAP = true;
   const def = STRUCTS[type];
@@ -1561,42 +1576,56 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
       s.cylinder(1.0, 1.0, 0.62, 10, '#5c8fc4', '#5c8fc4', { z0: 56, rTop: 0.06 });
       break;
     case 'police':
-      s.box(0.4, 0.4, 2.6, 1.9, 22, '#8c9bb5', '#3e5a8a', { windows: true });
-      s.box(0.9, 1.9, 2.1, 2.55, 10, '#a9b6cc', '#6f84a8');
-      s.beacon(2.7, 2.7, 24, '#3d7fe0');
+      // 2x2: main block, lower annex, mast with the blue light, a patrol car on the pad
+      s.custom(-2, (c) => poly(c, [P(0.2, 1.55), P(1.85, 1.55), P(1.85, 2), P(0.2, 2)], '#b7bcc4'));
+      s.box(0.2, 0.2, 1.8, 1.05, 22, '#8c9bb5', '#3e5a8a', { windows: true, floors: true });
+      s.box(0.35, 1.05, 1.45, 1.55, 10, '#a9b6cc', '#6f84a8', { windows: true });
       s.custom(50, (c) => {
-        const [x, y] = P(2.7, 2.7);
+        const [x, y] = P(1.72, 1.85), [tx, ty] = P(1.72, 1.85, 24);
         c.strokeStyle = '#ddd';
         c.lineWidth = 1;
         c.beginPath();
         c.moveTo(x, y);
-        c.lineTo(x, y - 22);
+        c.lineTo(tx, ty);
         c.stroke();
-        c.fillStyle = '#2f5fc4';
-        c.fillRect(x, y - 22, 7, 4);
+        poly(c, [[tx, ty], [tx + 8, ty + 2], [tx, ty + 5]], '#2f5fc4');
       });
+      s.beacon(1.72, 1.85, 25, '#3d7fe0');
+      // patrol car, nose toward the viewer: white body with a blue band, glazed cabin, light bar
+      s.box(0.4, 1.6, 0.74, 1.98, 3.4, '#f4f6f8', '#e2e6ea', { z0: 1.6 });
+      s.box(0.44, 1.67, 0.7, 1.9, 3.2, '#f4f6f8', '#dfe4ea', { z0: 5 });
+      s.custom(20, (c) => {
+        poly(c, [P(0.74, 1.62, 2.6), P(0.74, 1.96, 2.6), P(0.74, 1.96, 3.7), P(0.74, 1.62, 3.7)], '#2f5fc4');
+        poly(c, [P(0.7, 1.7, 5.6), P(0.7, 1.87, 5.6), P(0.7, 1.87, 7.9), P(0.7, 1.7, 7.9)], '#1f2a44');
+        poly(c, [P(0.46, 1.9, 5.6), P(0.68, 1.9, 5.6), P(0.68, 1.9, 7.9), P(0.46, 1.9, 7.9)], '#a9dcff');
+        poly(c, [P(0.42, 1.98, 2.6), P(0.48, 1.98, 2.6), P(0.48, 1.98, 3.6), P(0.42, 1.98, 3.6)], '#fff6cc');
+        poly(c, [P(0.66, 1.98, 2.6), P(0.72, 1.98, 2.6), P(0.72, 1.98, 3.6), P(0.66, 1.98, 3.6)], '#fff6cc');
+      });
+      s.box(0.5, 1.755, 0.57, 1.805, 1.2, '#3d7fe0', '#5fa0ff', { z0: 8.2 });
+      s.box(0.57, 1.755, 0.64, 1.805, 1.2, '#e04848', '#ff6b57', { z0: 8.2 });
+      s.beacon(0.535, 1.78, 9.8, '#3d7fe0');
+      s.custom(21, (c) => wheels(c, [[0.74, 1.68], [0.74, 1.92]], 1.7));
       break;
     case 'fire':
-      // apron in front, two-storey brick block, lower garage wing with three doors, hose tower, truck
-      s.custom(-2, (c) => poly(c, [P(0.3, 2.3), P(2.65, 2.3), P(2.65, 3), P(0.3, 3)], '#b7bcc4'));
-      s.box(0.35, 0.35, 2.6, 1.4, 22, '#c9524a', '#8f2f2a', { windows: true, floors: true });
-      s.box(0.35, 1.4, 2.6, 2.3, 13, '#d6605a', '#9a3a34');
-      s.box(0.35, 1.4, 2.6, 2.3, 1.5, '#f0e6d8', '#f0e6d8', { z0: 13 });
+      // 2x2: apron, two-storey brick block, garage wing with two bays (one open), hose tower, truck, flag
+      s.custom(-2, (c) => poly(c, [P(0.15, 1.5), P(1.85, 1.5), P(1.85, 2), P(0.15, 2)], '#b7bcc4'));
+      s.box(0.15, 0.2, 1.4, 0.95, 20, '#c9524a', '#8f2f2a', { windows: true, floors: true });
+      s.box(0.15, 0.95, 1.4, 1.5, 12, '#d6605a', '#9a3a34');
+      s.box(0.15, 0.95, 1.4, 1.5, 1.5, '#f0e6d8', '#f0e6d8', { z0: 12 });
       s.custom(2, (c) => {
-        for (let k = 0; k < 3; k++) {
-          const u0 = 0.5 + k * 0.72, u1 = u0 + 0.56;
-          poly(c, [P(u0 - 0.04, 2.3, 0), P(u1 + 0.04, 2.3, 0), P(u1 + 0.04, 2.3, 11.5), P(u0 - 0.04, 2.3, 11.5)], '#f0e6d8');
+        for (let k = 0; k < 2; k++) {
+          const u0 = 0.27 + k * 0.58, u1 = u0 + 0.44;
+          poly(c, [P(u0 - 0.03, 1.5, 0), P(u1 + 0.03, 1.5, 0), P(u1 + 0.03, 1.5, 10.5), P(u0 - 0.03, 1.5, 10.5)], '#f0e6d8');
           if (k === 0) {
-            // first bay open: dark inside, shutter rolled up under the lintel; the truck drives out of it
-            poly(c, [P(u0, 2.3, 0), P(u1, 2.3, 0), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#2a2f3a');
-            poly(c, [P(u0, 2.3, 8.5), P(u1, 2.3, 8.5), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#c9ced6');
+            poly(c, [P(u0, 1.5, 0), P(u1, 1.5, 0), P(u1, 1.5, 9.5), P(u0, 1.5, 9.5)], '#2a2f3a');
+            poly(c, [P(u0, 1.5, 7.8), P(u1, 1.5, 7.8), P(u1, 1.5, 9.5), P(u0, 1.5, 9.5)], '#c9ced6');
             continue;
           }
-          poly(c, [P(u0, 2.3, 0), P(u1, 2.3, 0), P(u1, 2.3, 10.5), P(u0, 2.3, 10.5)], '#c9ced6');
+          poly(c, [P(u0, 1.5, 0), P(u1, 1.5, 0), P(u1, 1.5, 9.5), P(u0, 1.5, 9.5)], '#c9ced6');
           c.strokeStyle = 'rgba(0,0,0,0.25)';
           c.lineWidth = 0.8;
-          for (const z of [3, 6, 9]) {
-            const [ax, ay] = P(u0, 2.3, z), [bx, by] = P(u1, 2.3, z);
+          for (const z of [2.5, 5, 7.5]) {
+            const [ax, ay] = P(u0, 1.5, z), [bx, by] = P(u1, 1.5, z);
             c.beginPath();
             c.moveTo(ax, ay);
             c.lineTo(bx, by);
@@ -1604,59 +1633,109 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
           }
         }
       });
-      // hose tower set against the main block, not inside it: a door at its foot, small windows up the side
-      s.house(2.62, 0.28, 2.98, 0.72, 38, 8, '#b34a43', '#4a4f57', { door: false, chimney: false });
-      s.custom(3.1, (c) => {
-        poly(c, [P(2.72, 0.72, 0), P(2.88, 0.72, 0), P(2.88, 0.72, 7), P(2.72, 0.72, 7)], '#34495e');
-        for (const z of [12, 22, 31]) poly(c, [P(2.98, 0.42, z), P(2.98, 0.58, z), P(2.98, 0.58, z + 4), P(2.98, 0.42, z + 4)], '#d9e6f2');
+      s.house(1.48, 0.25, 1.85, 0.62, 34, 7, '#b34a43', '#4a4f57', { door: false, chimney: false });
+      s.custom(1.8, (c) => {
+        poly(c, [P(1.58, 0.62, 0), P(1.74, 0.62, 0), P(1.74, 0.62, 7), P(1.58, 0.62, 7)], '#34495e');
+        for (const z of [11, 20, 28]) poly(c, [P(1.85, 0.36, z), P(1.85, 0.51, z), P(1.85, 0.51, z + 4), P(1.85, 0.36, z + 4)], '#d9e6f2');
       });
-      s.beacon(2.8, 0.5, 47, '#ff3b30');
-      // the truck pulls out of the first bay, nose toward the viewer: its back is in the doorway
-      for (const v of [2.4, 2.84]) for (const u of [0.58, 0.9]) s.box(u, v, u + 0.06, v + 0.1, 2.5, '#2b2f36', '#2b2f36');
-      s.box(0.62, 2.31, 0.92, 2.76, 7, '#d63c3c', '#b83232', { z0: 2 });
-      s.box(0.62, 2.76, 0.92, 3.0, 8, '#d63c3c', '#b83232', { z0: 2 });
+      s.beacon(1.665, 0.435, 43, '#ff3b30');
+      // the truck pulls out of the first bay, nose toward the viewer
+      s.box(0.34, 1.51, 0.63, 1.78, 7, '#d63c3c', '#b83232', { z0: 2 });
+      s.box(0.34, 1.78, 0.63, 1.98, 8, '#d63c3c', '#b83232', { z0: 2 });
       s.custom(20, (c) => {
-        poly(c, [P(0.92, 2.33, 4.3), P(0.92, 2.98, 4.3), P(0.92, 2.98, 5.5), P(0.92, 2.33, 5.5)], '#f4f4f4');
-        poly(c, [P(0.92, 2.79, 6.2), P(0.92, 2.97, 6.2), P(0.92, 2.97, 9), P(0.92, 2.79, 9)], '#a9dcff');
-        poly(c, [P(0.65, 3.0, 6.2), P(0.89, 3.0, 6.2), P(0.89, 3.0, 9.2), P(0.65, 3.0, 9.2)], '#a9dcff');
-        poly(c, [P(0.64, 3.0, 3), P(0.7, 3.0, 3), P(0.7, 3.0, 4.2), P(0.64, 3.0, 4.2)], '#fff6cc');
-        poly(c, [P(0.84, 3.0, 3), P(0.9, 3.0, 3), P(0.9, 3.0, 4.2), P(0.84, 3.0, 4.2)], '#fff6cc');
+        poly(c, [P(0.63, 1.53, 4.3), P(0.63, 1.96, 4.3), P(0.63, 1.96, 5.5), P(0.63, 1.53, 5.5)], '#f4f4f4');
+        poly(c, [P(0.63, 1.81, 6.2), P(0.63, 1.95, 6.2), P(0.63, 1.95, 9), P(0.63, 1.81, 9)], '#a9dcff');
+        poly(c, [P(0.37, 1.98, 6.2), P(0.6, 1.98, 6.2), P(0.6, 1.98, 9.2), P(0.37, 1.98, 9.2)], '#a9dcff');
+        poly(c, [P(0.36, 1.98, 3), P(0.42, 1.98, 3), P(0.42, 1.98, 4.2), P(0.36, 1.98, 4.2)], '#fff6cc');
+        poly(c, [P(0.55, 1.98, 3), P(0.61, 1.98, 3), P(0.61, 1.98, 4.2), P(0.55, 1.98, 4.2)], '#fff6cc');
         c.strokeStyle = '#c9ced6';
         c.lineWidth = 1;
-        for (const u of [0.69, 0.85]) {
-          const [ax, ay] = P(u, 2.35, 9.6), [bx, by] = P(u, 2.72, 9.6);
+        for (const u of [0.41, 0.56]) {
+          const [ax, ay] = P(u, 1.55, 9.6), [bx, by] = P(u, 1.75, 9.6);
           c.beginPath();
           c.moveTo(ax, ay);
           c.lineTo(bx, by);
           c.stroke();
         }
-        for (let v = 2.39; v < 2.72; v += 0.09) {
-          const [ax, ay] = P(0.69, v, 9.6), [bx, by] = P(0.85, v, 9.6);
+        for (let v = 1.58; v < 1.75; v += 0.06) {
+          const [ax, ay] = P(0.41, v, 9.6), [bx, by] = P(0.56, v, 9.6);
           c.beginPath();
           c.moveTo(ax, ay);
           c.lineTo(bx, by);
           c.stroke();
         }
       });
-      s.box(0.72, 2.84, 0.82, 2.94, 1.5, '#3d7fe0', '#5fa0ff', { z0: 10 });
-      s.beacon(0.77, 2.89, 11.5, '#3d7fe0');
+      s.box(0.43, 1.85, 0.54, 1.93, 1.5, '#3d7fe0', '#5fa0ff', { z0: 10 });
+      s.beacon(0.485, 1.89, 11.5, '#3d7fe0');
+      s.custom(21, (c) => wheels(c, [[0.63, 1.6], [0.63, 1.9]], 1.9));
       s.custom(50, (c) => {
-        const [x0, y0] = P(2.5, 2.8), [x1, y1] = P(2.5, 2.8, 24);
+        const [x0, y0] = P(1.72, 1.82), [x1, y1] = P(1.72, 1.82, 22);
         c.strokeStyle = '#d8dde3';
         c.lineWidth = 1;
         c.beginPath();
         c.moveTo(x0, y0);
         c.lineTo(x1, y1);
         c.stroke();
-        poly(c, [[x1, y1], [x1 + 9, y1 + 2], [x1, y1 + 5]], '#e04848');
+        poly(c, [[x1, y1], [x1 + 8, y1 + 2], [x1, y1 + 5]], '#e04848');
       });
       break;
     case 'school':
-      s.box(0.3, 0.3, 2.7, 1.3, 16, '#f4e3a1', '#e07b39', { windows: true });
-      s.box(0.3, 1.3, 1.1, 2.6, 14, '#f7ecc0', '#e07b39', { windows: true });
-      s.disc(2.0, 2.0, 0.55, '#c7b07a', 0, -1);
-      s.tree(2.6, 1.7, 4);
-      s.tree(1.6, 2.7, 4);
+      // schoolyard with a painted court, main block with a porch, low wing, hoop, flag, trees
+      s.custom(-2, (c) => {
+        poly(c, [P(1.45, 1.45), P(2.85, 1.45), P(2.85, 2.85), P(1.45, 2.85)], '#c9c2b5');
+        c.strokeStyle = 'rgba(255,255,255,0.7)';
+        c.lineWidth = 1;
+        const [cx, cy] = P(2.15, 2.15);
+        c.beginPath();
+        c.ellipse(cx, cy, 11, 5.5, 0, 0, Math.PI * 2);
+        c.stroke();
+        const a = P(1.6, 2.15), b = P(2.7, 2.15);
+        c.beginPath();
+        c.moveTo(a[0], a[1]);
+        c.lineTo(b[0], b[1]);
+        c.stroke();
+      });
+      s.box(0.3, 0.3, 2.7, 1.3, 16, '#f4e3a1', '#e07b39', { windows: true, floors: true });
+      s.box(0.3, 1.3, 1.1, 2.7, 12, '#f7ecc0', '#e07b39', { windows: true });
+      s.box(1.3, 1.3, 1.9, 1.5, 9, '#f4e3a1', '#c65f28');
+      s.custom(3, (c) => {
+        poly(c, [P(1.5, 1.5, 0), P(1.7, 1.5, 0), P(1.7, 1.5, 7), P(1.5, 1.5, 7)], '#34495e');
+        const [x, y] = P(1.5, 0.3, 16);
+        c.fillStyle = '#ffffff';
+        c.beginPath();
+        c.arc(x, y - 4, 2.6, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = '#34495e';
+        c.lineWidth = 0.8;
+        c.beginPath();
+        c.moveTo(x, y - 4);
+        c.lineTo(x, y - 6);
+        c.moveTo(x, y - 4);
+        c.lineTo(x + 1.5, y - 4);
+        c.stroke();
+      });
+      s.box(2.6, 2.6, 2.66, 2.66, 9, '#7a7f86', '#7a7f86');
+      s.custom(30, (c) => {
+        poly(c, [P(2.5, 2.63, 6), P(2.74, 2.63, 6), P(2.74, 2.63, 10), P(2.5, 2.63, 10)], '#f4f4f4');
+        const [hx, hy] = P(2.62, 2.66, 7);
+        c.strokeStyle = '#e04848';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.ellipse(hx, hy, 2.2, 1.1, 0, 0, Math.PI * 2);
+        c.stroke();
+      });
+      s.custom(50, (c) => {
+        const [x0, y0] = P(1.35, 2.75), [x1, y1] = P(1.35, 2.75, 22);
+        c.strokeStyle = '#d8dde3';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.lineTo(x1, y1);
+        c.stroke();
+        poly(c, [[x1, y1], [x1 + 8, y1 + 2], [x1, y1 + 5]], '#2f80b9');
+      });
+      s.tree(0.55, 2.85, 4);
+      s.tree(2.85, 0.5, 4);
       break;
     case 'hospital':
       s.box(0.3, 0.3, 2.7, 2.7, 30, '#eef0f2', '#d8dcdf', { windows: true });
@@ -1666,15 +1745,74 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
       });
       break;
     case 'station':
+      // platform with a safety line and a bench, pitched-roof building with a clock, canopy on posts
       s.box(0.1, 0.1, 1.9, 0.9, 3, '#b8b8b8', '#cfcfcf');
-      s.box(0.2, 1.1, 1.8, 1.9, 16, '#e8e0d0', '#c62828', { windows: true });
-      for (const u of [0.25, 1.0, 1.75]) s.box(u - 0.05, 0.45, u + 0.05, 0.55, 12, '#7a7a7a', '#7a7a7a', { z0: 3 });
-      s.box(0.15, 0.15, 1.85, 0.85, 2, '#8d8d8d', '#a5a5a5', { z0: 15 });
+      s.custom(0.5, (c) => poly(c, [P(0.12, 0.14, 3), P(1.88, 0.14, 3), P(1.88, 0.2, 3), P(0.12, 0.2, 3)], '#f2c14e'));
+      s.box(0.55, 0.7, 0.9, 0.78, 2.2, '#2e7d3a', '#43a047', { z0: 3 });
+      s.box(1.25, 0.72, 1.31, 0.78, 7, '#3d4654', '#3d4654', { z0: 3 });
+      s.custom(4, (c) => poly(c, [P(1.18, 0.75, 7.5), P(1.4, 0.75, 7.5), P(1.4, 0.75, 10), P(1.18, 0.75, 10)], '#2f5fc4'));
+      for (const u of [0.25, 1.0, 1.75]) s.box(u - 0.04, 0.46, u + 0.04, 0.54, 12, '#7a7a7a', '#8a8a8a', { z0: 3 });
+      s.box(0.15, 0.15, 1.85, 0.85, 1.5, '#8d8d8d', '#a5a5a5', { z0: 15, key: 20 });
+      s.house(0.2, 1.1, 1.8, 1.9, 14, 6, '#e8e0d0', '#c62828', { chimney: false });
+      s.custom(30, (c) => {
+        const [x, y] = P(1.0, 1.9, 10);
+        c.fillStyle = '#ffffff';
+        c.strokeStyle = '#34495e';
+        c.lineWidth = 0.8;
+        c.beginPath();
+        c.arc(x, y, 2.6, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+        c.beginPath();
+        c.moveTo(x, y);
+        c.lineTo(x, y - 2);
+        c.moveTo(x, y);
+        c.lineTo(x + 1.4, y + 0.6);
+        c.stroke();
+      });
       break;
     case 'bus':
-      s.box(0.1, 0.1, 1.9, 1.4, 16, '#9a9a9a', '#7a7a7a', { windows: true });
-      s.box(0.3, 1.5, 1.3, 1.9, 8, '#f2c14e', '#d9a93a');
-      s.box(1.5, 1.55, 1.85, 1.85, 6, '#f2c14e', '#d9a93a');
+      // depot shed with an open front and a ridge roof, two buses, a fuel pump and a stop sign
+      s.custom(-2, (c) => poly(c, [P(0.1, 1.4), P(1.9, 1.4), P(1.9, 2), P(0.1, 2)], '#b7bcc4'));
+      s.box(0.1, 0.1, 1.9, 1.4, 14, '#9a9a9a', '#7a7a7a');
+      s.box(0.1, 0.55, 1.9, 0.95, 3, '#7a7a7a', '#8a8f96', { z0: 14 });
+      s.custom(2, (c) => {
+        poly(c, [P(0.35, 1.4, 0), P(1.65, 1.4, 0), P(1.65, 1.4, 11), P(0.35, 1.4, 11)], '#2a2f3a');
+        poly(c, [P(0.35, 1.4, 9.5), P(1.65, 1.4, 9.5), P(1.65, 1.4, 11), P(0.35, 1.4, 11)], '#c9ced6');
+        poly(c, [P(0.1, 1.4, 11.5), P(1.9, 1.4, 11.5), P(1.9, 1.4, 13), P(0.1, 1.4, 13)], '#f2c14e');
+      });
+      // bus on the apron, along u, nose to the right
+      s.box(0.2, 1.5, 1.0, 1.85, 8, '#f2c14e', '#d9a93a', { z0: 1.5 });
+      s.custom(20, (c) => {
+        poly(c, [P(0.25, 1.85, 4), P(0.95, 1.85, 4), P(0.95, 1.85, 7), P(0.25, 1.85, 7)], '#a9dcff');
+        poly(c, [P(1.0, 1.55, 4), P(1.0, 1.8, 4), P(1.0, 1.8, 7.5), P(1.0, 1.55, 7.5)], '#a9dcff');
+        poly(c, [P(1.0, 1.53, 2.2), P(1.0, 1.6, 2.2), P(1.0, 1.6, 3.2), P(1.0, 1.53, 3.2)], '#fff6cc');
+        poly(c, [P(1.0, 1.75, 2.2), P(1.0, 1.82, 2.2), P(1.0, 1.82, 3.2), P(1.0, 1.75, 3.2)], '#fff6cc');
+        wheels(c, [[0.37, 1.85], [0.85, 1.85]], 1.6);
+      });
+      // second bus leaving the depot, along v, nose toward the viewer
+      s.box(1.2, 1.42, 1.55, 1.97, 8, '#f2c14e', '#d9a93a', { z0: 1.5 });
+      s.custom(21, (c) => {
+        poly(c, [P(1.55, 1.47, 4), P(1.55, 1.92, 4), P(1.55, 1.92, 7), P(1.55, 1.47, 7)], '#a9dcff');
+        poly(c, [P(1.23, 1.97, 4), P(1.52, 1.97, 4), P(1.52, 1.97, 7.5), P(1.23, 1.97, 7.5)], '#a9dcff');
+        poly(c, [P(1.24, 1.97, 2.2), P(1.3, 1.97, 2.2), P(1.3, 1.97, 3.2), P(1.24, 1.97, 3.2)], '#fff6cc');
+        poly(c, [P(1.45, 1.97, 2.2), P(1.51, 1.97, 2.2), P(1.51, 1.97, 3.2), P(1.45, 1.97, 3.2)], '#fff6cc');
+        wheels(c, [[1.55, 1.52], [1.55, 1.88]], 1.6);
+      });
+      s.box(1.72, 1.45, 1.84, 1.55, 7, '#e04848', '#b83232');
+      s.custom(30, (c) => {
+        const [x0, y0] = P(1.75, 1.9), [x1, y1] = P(1.75, 1.9, 14);
+        c.strokeStyle = '#d8dde3';
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.lineTo(x1, y1);
+        c.stroke();
+        c.fillStyle = '#2f5fc4';
+        c.beginPath();
+        c.arc(x1, y1 - 2, 2.6, 0, Math.PI * 2);
+        c.fill();
+      });
       break;
     case 'port': {
       // the quay side faces the water: `frame` is the side (0 = +v, 1 = +u, 2 = -v, 3 = -u).
@@ -1818,34 +1956,162 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0): void {
     case 'park':
       parkTile(s, 0, 0);
       break;
-    case 'bigpark':
-      s.custom(-2, (c) => {
-        poly(c, [P(1.42, 0), P(1.58, 0), P(1.58, 3), P(1.42, 3)], '#d9d2bd');
-        poly(c, [P(0, 1.42), P(3, 1.42), P(3, 1.58), P(0, 1.58)], '#d9d2bd');
-      });
-      s.disc(2.1, 2.1, 0.6, '#3b78b5', 0, -1);
-      // fountain in the pond: the jet has three heights
-      s.cylinder(2.1, 2.1, 0.12, 3, '#b9bec6', '#d5d9de');
-      s.custom(30, (c) => {
-        const jet = [10, 14, 12][frame % 3];
-        const [x, y] = P(2.1, 2.1, 3);
-        c.strokeStyle = 'rgba(190,230,255,0.9)';
-        c.lineWidth = 2;
+    case 'bigpark': {
+      // 2x2, four layouts picked by position: fountain square, pond and gazebo, playground, flower garden
+      const path = '#d9d2bd', water = '#3b78b5', rim = '#cfe3d0';
+      const jet = [10, 14, 12][frame % 3];
+      s.custom(-3, (c) => poly(c, diamond(0.03, 0, 0, 2), 'rgba(180,235,130,0.35)'));
+      // iron railings (unlike the small park's hedge); a side shared with another big park (mask N=1 E=2 S=4 W=8) stays open
+      const fence = (u0: number, v0: number, u1: number, v1: number, key: number) => s.custom(key, (c) => {
+        const H = 5, along = u1 - u0 > v1 - v0 ? 'u' : 'v';
+        c.strokeStyle = '#3d4654';
+        c.lineWidth = 1;
+        const a0 = P(u0, v0, H * 0.45), a1 = P(u1, v1, H * 0.45), b0 = P(u0, v0, H), b1 = P(u1, v1, H);
         c.beginPath();
-        c.moveTo(x, y);
-        c.lineTo(x, y - jet);
+        c.moveTo(a0[0], a0[1]); c.lineTo(a1[0], a1[1]);
+        c.moveTo(b0[0], b0[1]); c.lineTo(b1[0], b1[1]);
         c.stroke();
-        c.fillStyle = 'rgba(190,230,255,0.8)';
-        for (const [dx, dy] of [[-3, 3], [3, 2], [-1.5, 6], [2, 6]]) {
+        c.lineWidth = 0.8;
+        const n = Math.round((along === 'u' ? u1 - u0 : v1 - v0) / 0.12);
+        for (let k = 0; k <= n; k++) {
+          const u = along === 'u' ? u0 + (u1 - u0) * k / n : u0, v = along === 'v' ? v0 + (v1 - v0) * k / n : v0;
+          const p0 = P(u, v, 0), p1 = P(u, v, H + (k % 4 === 0 ? 1.5 : 0));
+          c.lineWidth = k % 4 === 0 ? 1.4 : 0.8;
           c.beginPath();
-          c.arc(x + dx, y - jet + dy + (frame % 3), 1, 0, Math.PI * 2);
-          c.fill();
+          c.moveTo(p0[0], p0[1]);
+          c.lineTo(p1[0], p1[1]);
+          c.stroke();
         }
       });
-      for (const [u, v] of [[0.4, 0.4], [1.0, 0.5], [0.5, 1.0], [2.5, 0.5], [2.6, 1.1], [0.6, 2.4], [1.1, 2.7], [2.7, 2.7]]) {
-        s.tree(u, v, 5.5);
+      if (!(mask & 1)) fence(0.05, 0.05, 1.95, 0.05, -1.5);
+      if (!(mask & 8)) fence(0.05, 0.05, 0.05, 1.95, -1.5);
+      if (!(mask & 2)) fence(1.95, 0.05, 1.95, 1.95, 60);
+      if (!(mask & 4)) fence(0.05, 1.95, 1.95, 1.95, 60);
+      const band = (u0: number, v0: number, u1: number, v1: number) => s.custom(-2, (c) => poly(c, [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)], path));
+      const bench = (u: number, v: number, along: 'u' | 'v') => {
+        if (along === 'u') s.box(u - 0.09, v - 0.03, u + 0.09, v + 0.03, 2, '#7a5230', '#9a6a3a');
+        else s.box(u - 0.03, v - 0.09, u + 0.03, v + 0.09, 2, '#7a5230', '#9a6a3a');
+      };
+      const fountain = (u: number, v: number) => {
+        s.cylinder(u, v, 0.1, 3, '#b9bec6', '#d5d9de');
+        s.custom(30, (c) => {
+          const [x, y] = P(u, v, 3);
+          c.strokeStyle = 'rgba(190,230,255,0.9)';
+          c.lineWidth = 2;
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(x, y - jet);
+          c.stroke();
+          c.fillStyle = 'rgba(190,230,255,0.8)';
+          for (const [dx, dy] of [[-3, 3], [3, 2], [-1.5, 6], [2, 6]]) {
+            c.beginPath();
+            c.arc(x + dx, y - jet + dy + (frame % 3), 1, 0, Math.PI * 2);
+            c.fill();
+          }
+        });
+      };
+      const flowerBed = (u: number, v: number, col: string) => {
+        s.disc(u, v, 0.17, '#3fa845', 0, -1.2);
+        s.disc(u, v, 0.13, col, 0, -1);
+        s.custom(0.2, (c) => {
+          for (const [du, dv] of [[-0.05, -0.03], [0.04, -0.05], [0, 0.05], [-0.04, 0.04], [0.05, 0.02]]) {
+            const [x, y] = P(u + du, v + dv);
+            c.fillStyle = 'rgba(255,255,255,0.8)';
+            c.beginPath();
+            c.arc(x, y, 1, 0, Math.PI * 2);
+            c.fill();
+          }
+        });
+      };
+      switch (variant & 3) {
+        case 0:
+          // fountain square: crossing paths, round plaza, pond and fountain, trees and benches
+          s.custom(-2, (c) => {
+            poly(c, [P(0.92, 0), P(1.08, 0), P(1.08, 2), P(0.92, 2)], path);
+            poly(c, [P(0, 0.92), P(2, 0.92), P(2, 1.08), P(0, 1.08)], path);
+            const [x, y] = P(1, 1);
+            c.fillStyle = path;
+            c.beginPath();
+            c.ellipse(x, y, 20, 10, 0, 0, Math.PI * 2);
+            c.fill();
+          });
+          s.disc(1, 1, 0.36, rim, 0, -1.2);
+          s.disc(1, 1, 0.32, water, 0, -1);
+          fountain(1, 1);
+          for (const [u, v] of [[0.38, 0.38], [1.62, 0.38], [0.38, 1.62], [1.62, 1.62]]) s.tree(u, v, 5.5);
+          bench(0.55, 0.84, 'u'); bench(1.45, 0.84, 'u'); bench(0.84, 1.45, 'v'); bench(1.16, 0.55, 'v');
+          break;
+        case 1:
+          // pond and gazebo: a winding pond, an L path, a gazebo with a red cone roof, flower beds
+          s.custom(-2, (c) => {
+            poly(c, [P(0, 0.45), P(0.62, 0.45), P(0.62, 0.6), P(0, 0.6)], path);
+            poly(c, [P(0.46, 0.6), P(0.62, 0.6), P(0.62, 2), P(0.46, 2)], path);
+          });
+          if (mask & 1) band(0.46, 0, 0.62, 0.45);
+          if (mask & 2) { band(0.62, 0.72, 2, 0.86); band(0.46, 0.6, 0.62, 0.86); }
+          s.disc(1.3, 1.3, 0.46, rim, 0, -1.3);
+          s.disc(1.3, 1.3, 0.42, water, 0, -1.1);
+          s.disc(0.98, 1.5, 0.3, rim, 0, -1.3);
+          s.disc(0.98, 1.5, 0.26, water, 0, -1.1);
+          s.disc(1.55, 0.45, 0.3, '#c9c2b5', 0, -1);
+          s.cylinder(1.55, 0.45, 0.22, 8, '#e8e0d0', '#d8d0c0');
+          s.cylinder(1.55, 0.45, 0.29, 6, '#c62828', '#a82020', { z0: 8, rTop: 0.03 });
+          flowerBed(0.95, 0.25, '#e8467c');
+          flowerBed(1.72, 1.85, '#ffd23f');
+          s.tree(0.24, 1.15, 5); s.tree(0.26, 1.78, 5); s.tree(1.82, 1.1, 5); s.tree(1.1, 0.8, 4);
+          bench(0.32, 0.7, 'u');
+          break;
+        case 2:
+          // playground: sand pit with slide, swings and seesaw, path in, trees
+          s.custom(-2, (c) => {
+            poly(c, [P(0.9, 0.9), P(1.85, 0.9), P(1.85, 1.85), P(0.9, 1.85)], '#e8d9a8');
+            poly(c, [P(0, 0.95), P(0.9, 0.95), P(0.9, 1.1), P(0, 1.1)], path);
+          });
+          if (mask & 1) band(0.6, 0, 0.75, 0.95);
+          if (mask & 4) band(0.6, 1.1, 0.75, 2);
+          if (mask & 2) { band(0.75, 0.75, 0.9, 1.1); band(0.9, 0.75, 2, 0.9); }
+          s.box(1.02, 1.02, 1.18, 1.18, 7, '#f2c14e', '#e0a93a');
+          s.custom(0.3, (c) => poly(c, [P(1.18, 1.05, 7), P(1.18, 1.15, 7), P(1.42, 1.15, 0), P(1.42, 1.05, 0)], '#e04848'));
+          s.box(1.5, 1.52, 1.53, 1.55, 9, '#4f6d8f', '#4f6d8f');
+          s.box(1.76, 1.52, 1.79, 1.55, 9, '#4f6d8f', '#4f6d8f');
+          s.box(1.5, 1.525, 1.79, 1.545, 1, '#7a5230', '#7a5230', { z0: 9 });
+          {
+            const sw = [-0.04, 0, 0.04][frame % 3];
+            s.box(1.6 + sw, 1.515, 1.66 + sw, 1.555, 1.2, '#e04848', '#e04848', { z0: 3 + Math.abs(sw) * 35 });
+          }
+          s.box(1.05, 1.6, 1.45, 1.65, 1, '#3a6fd8', '#5a8fe8', { z0: 2.5 });
+          s.box(1.22, 1.58, 1.28, 1.67, 2.5, '#7a7f86', '#7a7f86');
+          s.tree(0.35, 0.35, 5.5); s.tree(1.6, 0.35, 5); s.tree(0.35, 1.65, 5);
+          bench(0.6, 1.2, 'u');
+          break;
+        default:
+          // flower garden: a square loop of path, four beds, an obelisk, an arbour, corner trees
+          s.custom(-2, (c) => {
+            poly(c, [P(0.35, 0.35), P(1.65, 0.35), P(1.65, 0.48), P(0.35, 0.48)], path);
+            poly(c, [P(0.35, 1.52), P(1.65, 1.52), P(1.65, 1.65), P(0.35, 1.65)], path);
+            poly(c, [P(0.35, 0.35), P(0.48, 0.35), P(0.48, 1.65), P(0.35, 1.65)], path);
+            poly(c, [P(1.52, 0.35), P(1.65, 0.35), P(1.65, 1.65), P(1.52, 1.65)], path);
+          });
+          if (mask & 1) band(0.93, 0, 1.07, 0.35);
+          if (mask & 4) band(0.93, 1.65, 1.07, 2);
+          if (mask & 2) band(1.65, 0.93, 2, 1.07);
+          if (mask & 8) band(0, 0.93, 0.35, 1.07);
+          flowerBed(0.78, 0.78, '#e8467c');
+          flowerBed(1.22, 0.78, '#ffd23f');
+          flowerBed(0.78, 1.22, '#8a5be0');
+          flowerBed(1.22, 1.22, '#ff8c2e');
+          s.box(0.95, 0.95, 1.05, 1.05, 3, '#c4c9d1', '#e6e9ed');
+          s.box(0.97, 0.97, 1.03, 1.03, 14, '#d5d9de', '#f2f3f5', { z0: 3 });
+          s.cylinder(1, 1, 0.035, 2, '#dba82e', '#f2c94c', { z0: 17 });
+          s.box(0.9, 0.36, 0.93, 0.39, 8, '#7a5230', '#7a5230');
+          s.box(1.07, 0.36, 1.1, 0.39, 8, '#7a5230', '#7a5230');
+          s.box(0.87, 0.34, 1.13, 0.41, 1, '#3fa845', '#4cbf52', { z0: 8 });
+          for (const [u, v] of [[0.2, 0.2], [1.8, 0.2], [0.2, 1.8], [1.8, 1.8]]) s.tree(u, v, 4.5);
+          bench(0.7, 1.74, 'u'); bench(0.26, 0.72, 'v'); bench(1.74, 0.72, 'v');
+          break;
       }
       break;
+    }
   }
   s.render();
 }
@@ -2235,7 +2501,7 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'fire': return drawFlames(ctx, num(1));
     case 'bld': return drawBuilding(ctx, num(1) as ZoneType, num(2), num(3));
     case 'big': return drawBigBuilding(ctx, num(1) as ZoneType, num(2), num(3), num(4));
-    case 'st': return drawStruct(ctx, parts[1] as StructType, parts[2] ? num(2) : 0);
+    case 'st': return drawStruct(ctx, parts[1] as StructType, parts[2] ? num(2) : 0, parts[3] ? num(3) : 0, parts[4] ? num(4) : 0);
     case 'park': {
       drawGrass(ctx, 1);
       const s = new Scene(ctx, num(2));

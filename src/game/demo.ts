@@ -97,6 +97,7 @@ export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
   const savedMoney = city.money;
   city.money = 1e9;
   const apply = (tool: Tool, from: { x: number; y: number }, to = from) => applyPlan(city, planTool(city, tool, from, to));
+  city.maxPop = 1e6; // everything is available while the showcase is laid out
 
   // streets: rows and columns at 4/5/4/3 spacing, clipped to the blob
   const rows: number[] = [], cols: number[] = [];
@@ -201,6 +202,7 @@ export function buildDemoCity(city: City, opts: DemoOptions = {}): DemoArea {
   refreshGrid(city);
   computeStats(city);
 
+  city.maxPop = 0; // the showcase placed everything unlocked; milestones now play out normally
   const ticks = (opts.years ?? 0) * 12 * TICKS_PER_MONTH;
   for (let t = 0; t < ticks; t++) tick(city);
 

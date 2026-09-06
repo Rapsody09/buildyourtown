@@ -3,6 +3,24 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.6.0 — 2026-09-06
+
+Une progression, des bâtiments plus soignés et des retours de la version mobile.
+
+- Les équipements lourds se débloquent avec la population : dépôt de bus et
+  grand parc à 1 000 habitants, hôpital et centrale à gaz à 2 500, rail et
+  gare à 5 000, autoroute et port à 10 000, aéroport et nucléaire à 20 000.
+- La reprise après faillite ramène à une photo prise tous les six mois tant
+  que les comptes sont sains, annoncée clairement ; une ville en faillite ne
+  tourne plus tant qu'on n'a pas choisi.
+- Commissariat, caserne et grand parc passent en 2×2. Le grand parc a quatre
+  aménagements et se relie à ses voisins derrière une seule grille. École,
+  gare et dépôt de bus redessinés, avec voiture de patrouille, camion, bus.
+- Le tableau de bord montre aussi l'électricité et l'eau ; il s'ouvre depuis
+  les barres de demande, la consommation ou l'eau du bandeau.
+- Sur téléphone : chiffres abrégés dans le bandeau, Mes villes centré, plus de
+  symbole à côté de la date, texte d'aide de l'accueil retiré.
+
 ## 0.5.0 — 2026-09-06
 
 On peut désormais perdre, et la barre d'outils va plus vite.

@@ -165,11 +165,17 @@ const D: Record<string, [string, string]> = {
   'touch.release': ['Relâchez pour poser', 'Release to place'],
   'minimap.title': ['Carte', 'Map'],
   'demand.title': ['Demande', 'Demand'],
+  'details.title': ['Tableau de bord', 'Dashboard'],
+  'details.demand': ['Demande', 'Demand'],
+  'details.networks': ['Réseaux', 'Utilities'],
+  'details.power': ['Électricité', 'Power'],
+  'details.water': ['Eau', 'Water'],
+  'details.hint': ['Électricité : consommation sur capacité des centrales. Eau : part des bâtiments alimentés.', 'Power: use against plant capacity. Water: share of buildings supplied.'],
   'bankrupt.title': ['Faillite', 'Bankruptcy'],
-  'bankrupt.text': ['{name} est restée sous {floor} pendant {months} mois : le conseil municipal vous retire les clés de la ville. Vous pouvez reprendre la partie au moment où les comptes ont basculé.', '{name} stayed below {floor} for {months} months: the town council takes the keys away from you. You may resume the game from the moment the books tipped over.'],
+  'bankrupt.text': ['{name} est restée sous {floor} pendant {months} mois : le conseil municipal vous retire les clés de la ville. Vous pouvez reprendre la partie à la dernière période où les comptes étaient sains.', '{name} stayed below {floor} for {months} months: the town council takes the keys away from you. You may resume the game from the last time the books were sound.'],
   'bankrupt.rescue': ['Reprendre avant la crise', 'Go back to before the crisis'],
   'bankrupt.load': ['Mes villes', 'My cities'],
-  'status.rescued': ['{name} reprend juste avant la crise : redressez les comptes.', '{name} resumes just before the crisis: fix the books.'],
+  'status.rescued': ['Retour en {date} : {name} reprend avec des comptes sains. Redressez la barre.', 'Back to {date}: {name} resumes with sound books. Set things right.'],
   'bankrupt.new': ['Nouvelle ville', 'New city'],
   'advice.bankruptSoon': ['Fonds sous le seuil de faillite : {months} mois avant que le conseil ne vous démette.', 'Funds below the bankruptcy floor: {months} months before the council removes you.'],
   'log.bankrupt': ['La ville est en faillite.', 'The city is bankrupt.'],
@@ -396,6 +402,15 @@ export function months(): string[] {
 export function fmtMoney(n: number): string {
   const v = Math.round(n).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US');
   return lang === 'fr' ? `${v} $` : `$${v}`;
+}
+
+/** Short figure for small screens: 12 345 -> 12,3 k, 1 234 567 -> 1,23 M (unit appended by the caller). */
+export function fmtCompact(n: number): string {
+  const a = Math.abs(n), sign = n < 0 ? '−' : '';
+  const loc = lang === 'fr' ? 'fr-FR' : 'en-GB';
+  if (a >= 1e6) return `${sign}${(a / 1e6).toLocaleString(loc, { maximumSignificantDigits: 3 })} M`;
+  if (a >= 1e4) return `${sign}${(a / 1e3).toLocaleString(loc, { maximumSignificantDigits: 3 })} k`;
+  return `${sign}${Math.round(a).toLocaleString(loc)}`;
 }
 
 export function fmtInt(n: number): string {

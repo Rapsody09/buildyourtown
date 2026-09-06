@@ -6,7 +6,7 @@ import {
   BANKRUPT_MONTHS, BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, ORDINANCES, ORDINANCE_KEYS,
   Overlay, Terrain, type DataMap, type Dept, type Difficulty, type Ordinance, type StructType, type Tool,
 } from '../game/types';
-import { fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
+import { fmtCompact, fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
 import { renderIcon } from '../render/sprites';
 import { Renderer } from '../render/renderer';
 import type { SaveEntry } from '../save';
@@ -164,9 +164,8 @@ export class Hud {
   private query = $('query');
   private flyout = $('flyout');
   private rci = { r: $('rci-r'), c: $('rci-c'), i: $('rci-i') };
-  /** a small copy of the demand bars lives in the minimap head, where phones can see it */
-  private rciCopies: { r: HTMLElement; c: HTMLElement; i: HTMLElement }[] = [];
-  private lastDemand = { r: 0, c: 0, i: 0 };
+  /** what the dashboard shows, refreshed with the top bar */
+  private lastDemand = { r: 0, c: 0, i: 0, powerUse: 0, powerCap: 0, water: 0 };
   private currentTool: Tool = 'query';
   private toastTimer = 0;
   private toolButtons = new Map<Tool, HTMLButtonElement>();
@@ -194,7 +193,6 @@ export class Hud {
   private welcomeSeeds: number[] = [];
 
   constructor(private handlers: HudHandlers) {
-    if (isMobile()) $('welcome-help').dataset.i18n = 'help.touch';
     translateStatic();
     this.buildToolbar();
     this.buildBudgetPanel();
@@ -203,13 +201,6 @@ export class Hud {
     this.bindMinimap();
     this.buildTutorial();
     this.buildBankrupt();
-    // the R C I demand bars, small, in the minimap head
-    {
-      const mk = (z: string) => h('div', { class: `bar ${z}` }, h('div', { class: 'fill' }));
-      const r = mk('r'), c = mk('c'), i = mk('i');
-      $('minimap-name').after(h('span', { class: 'bars mini', id: 'rci-map', 'data-i18n-title': 'top.demand.title' }, r, c, i));
-      this.rciCopies.push({ r: r.firstElementChild as HTMLElement, c: c.firstElementChild as HTMLElement, i: i.firstElementChild as HTMLElement });
-    }
     // a tap on the map closes what floats over it: the light menus everywhere, every sheet on phones
     $('map').addEventListener('pointerdown', () => {
       if (isMobile()) { this.closePanels(); return; }
@@ -218,9 +209,8 @@ export class Hud {
       $('speed').classList.remove('show');
       this.closeFlyout();
     }, { passive: true });
-    // tapping the bars, in the minimap or in the top bar, opens the demand details
-    $('rci-map').addEventListener('click', (e) => { e.stopPropagation(); this.toggleDemand(true); });
-    document.querySelector('.stat.rci')!.addEventListener('click', () => this.toggleDemand(false));
+    // tapping the demand bars, the power or the water figure opens the dashboard
+    for (const sel of ['.stat.rci', '.stat.power', '.stat.water']) document.querySelector(sel)!.addEventListener('click', () => this.toggleDemand());
     this.toolPill.addEventListener('click', () => this.handlers.onTool('query'));
     // the top bar figures open what explains them: funds -> budget, population -> journal, date -> speed
     document.querySelector('.stat.money')!.addEventListener('click', () => $('btn-budget').click());
@@ -397,8 +387,6 @@ export class Hud {
 
   setSpeed(speed: number): void {
     for (const b of this.speedButtons) b.classList.toggle('active', Number(b.dataset.speed) === speed);
-    $('date').classList.toggle('paused', speed === 0);
-    $('date-mobile').classList.toggle('paused', speed === 0);
   }
 
   // ---- panels --------------------------------------------------------------
@@ -716,21 +704,14 @@ export class Hud {
   // ---- demand details -------------------------------------------------------
 
   /** The three demands with figures and a word of advice; opens by the minimap or under the top bar. */
-  private toggleDemand(fromMinimap: boolean): void {
+  private toggleDemand(): void {
     const pop = $('demand-pop');
     const wasHidden = pop.hidden;
     this.closePanels();
     if (!wasHidden) return;
     this.fillDemand();
     pop.hidden = false;
-    pop.classList.toggle('near-minimap', fromMinimap && !isMobile());
-    if (isMobile()) { pop.style.top = ''; return; }
-    if (fromMinimap) {
-      const r = $('minimap').getBoundingClientRect();
-      pop.style.top = `${Math.max(8, r.top - pop.offsetHeight - 8)}px`;
-    } else {
-      pop.style.top = '62px';
-    }
+    pop.style.top = isMobile() ? '' : '62px';
   }
 
   private fillDemand(): void {
@@ -741,8 +722,22 @@ export class Hud {
     const advice = best[2] > 0.08 ? t(`demand.advice.${best[0] === 'r' ? 'res' : best[0] === 'c' ? 'com' : 'ind'}`) : t('demand.advice.none');
     const close = h('button', { type: 'button', text: '✕', 'aria-label': 'Fermer' });
     close.addEventListener('click', () => this.closePanels());
+    const powerRatio = d.powerCap > 0 ? d.powerUse / d.powerCap : d.powerUse > 0 ? 2 : 0;
+    const gauge = (cls: string, ratio: number, over: boolean) => {
+      const fill = h('i', { class: `fill ${cls}` });
+      fill.style.left = '0';
+      fill.style.width = `${Math.round(Math.min(1, ratio) * 100)}%`;
+      const track = h('span', { class: 'track uni' }, fill);
+      track.classList.toggle('over', over);
+      return track;
+    };
+    const powerNum = h('b', { class: 'wide', text: `${fmtInt(d.powerUse)} / ${fmtInt(d.powerCap)} MW` });
+    powerNum.classList.toggle('negative', powerRatio > 1);
+    const waterNum = h('b', { text: fmtPct(d.water) });
+    waterNum.classList.toggle('negative', d.water < 0.5);
     pop.replaceChildren(
-      h('div', { class: 'head' }, h('span', { text: t('demand.title') }), close),
+      h('div', { class: 'head' }, h('span', { text: t('details.title') }), close),
+      h('h4', { text: t('details.demand') }),
       ...rows.map(([z, label, v]) => {
         const pct = Math.round(Math.sqrt(Math.abs(v)) * 50);
         const fill = h('i', { class: `fill ${z}` });
@@ -754,7 +749,10 @@ export class Hud {
         return h('div', { class: 'drow' }, h('span', { class: 'lbl', text: label }), h('span', { class: 'track' }, fill), num);
       }),
       h('p', { class: 'advice', text: advice }),
-      h('p', { class: 'hint', text: t('demand.hint') }),
+      h('h4', { text: t('details.networks') }),
+      h('div', { class: 'drow' }, h('span', { class: 'lbl', text: t('details.power') }), gauge('power', powerRatio, powerRatio > 1), powerNum),
+      h('div', { class: 'drow' }, h('span', { class: 'lbl', text: t('details.water') }), gauge('water', d.water, d.water < 0.5), waterNum),
+      h('p', { class: 'hint', text: t('details.hint') }),
     );
   }
 
@@ -844,13 +842,13 @@ export class Hud {
   update(city: City): void {
     const b = city.lastBudget;
     const income = budgetIncome(b), expenses = budgetExpenses(b);
-    this.money.textContent = fmtMoney(city.money);
+    this.money.textContent = isMobile() ? (lang === 'fr' ? `${fmtCompact(city.money)}$` : `$${fmtCompact(city.money)}`) : fmtMoney(city.money);
     this.money.classList.toggle('negative', city.money < 0);
     const net = income - expenses;
     this.budgetNet.textContent = `${net >= 0 ? '+' : ''}${fmtMoney(net)} ${t('top.perMonth')}`;
     this.date.textContent = `${months()[city.month]} ${city.year}`;
     $('date-mobile').textContent = this.date.textContent;
-    this.pop.textContent = fmtInt(city.stats.pop);
+    this.pop.textContent = isMobile() ? fmtCompact(city.stats.pop) : fmtInt(city.stats.pop);
     const short = city.power.demand > city.power.supply;
     this.power.textContent = `${fmtInt(city.power.demand)} / ${fmtInt(city.power.supply)} MW`;
     this.power.classList.toggle('negative', short);
@@ -858,13 +856,8 @@ export class Hud {
     this.setBar(this.rci.r, city.demand.r);
     this.setBar(this.rci.c, city.demand.c);
     this.setBar(this.rci.i, city.demand.i);
-    this.lastDemand = { r: city.demand.r, c: city.demand.c, i: city.demand.i };
+    this.lastDemand = { r: city.demand.r, c: city.demand.c, i: city.demand.i, powerUse: city.power.demand, powerCap: city.power.supply, water: city.stats.waterShare };
     if (!$('demand-pop').hidden) this.fillDemand();
-    for (const copy of this.rciCopies) {
-      this.setBar(copy.r, city.demand.r);
-      this.setBar(copy.c, city.demand.c);
-      this.setBar(copy.i, city.demand.i);
-    }
 
     if (this.taxInput.value !== String(city.taxRate)) {
       this.taxInput.value = String(city.taxRate);

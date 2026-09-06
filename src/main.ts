@@ -7,10 +7,10 @@ import { computeStats, issueBond, recomputeRoadDist, refreshGrid, repayBond, tic
 import { STRUCTS, isStructTool, structDesc, structName } from './game/structs';
 import { applyPlan, planTool, unitCost, type Pt, type ToolPlan } from './game/tools';
 import {
-  DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, NO_ROAD, Overlay, POP_PER_LEVEL,
-  ROAD_CAPACITY, Terrain, ZONE_COLOR, isZone, type DataMap, type Difficulty, type DisasterKind, type Tool,
+  DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, NO_ROAD, Overlay, POP_PER_LEVEL, ROAD_CAPACITY, TOOL_UNLOCK, Terrain, ZONE_COLOR, isZone,
+  type DataMap, type Difficulty, type DisasterKind, type Tool,
 } from './game/types';
-import { fmtInt, fmtMoney, setLang, t, type Lang } from './i18n';
+import { type Lang, fmtInt, fmtMoney, months, setLang, t } from './i18n';
 import { Renderer } from './render/renderer';
 import { deleteSave, getCurrentKey, hasRescue, listSaves, loadCity, loadRescue, migrateLegacy, newKey, saveCity, saveRescue, setCurrentKey } from './save';
 import { Hud, type QueryInfo } from './ui/hud';
@@ -65,8 +65,6 @@ let unsaved = false;
 let touchPending: Pt | null = null;
 /** a held finger carries a building around: it is placed where the finger lets go */
 let holdPlacing = false;
-/** months under the funds floor at the last month end: a 0 -> 1 step takes the rescue snapshot */
-let lastBroke = 0;
 
 const hud = new Hud({
   onTool: setTool,
@@ -107,13 +105,14 @@ const hud = new Hud({
     saveCity(city, currentKey);
     hud.setCityList(listSaves(), currentKey);
     setSpeed(1);
-    hud.setStatus(t('status.rescued', { name: city.name }));
+    const msg = t('status.rescued', { name: city.name, date: `${months()[city.month]} ${city.year}` });
+    hud.setStatus(msg);
+    hud.toast(msg, 'info');
   },
   onLang: (l: Lang) => { autosave(); setLang(l); location.reload(); },
   lockReason: (tl) => {
-    if (!isStructTool(tl)) return null;
-    const def = STRUCTS[tl];
-    return def.unlockPop && city.maxPop < def.unlockPop ? t('locked', { pop: fmtInt(def.unlockPop) }) : null;
+    const need = isStructTool(tl) ? STRUCTS[tl].unlockPop : TOOL_UNLOCK[tl];
+    return need && city.maxPop < need ? t('locked', { pop: fmtInt(need) }) : null;
   },
 });
 
@@ -183,7 +182,8 @@ function startCity(): void {
   hud.update(city);
   hud.showQuery(null);
   setDataMap('none');
-  lastBroke = city.brokeMonths;
+  // a city arriving healthy gets a first photo at once
+  if (!demoMode && currentKey && !city.bankrupt && city.brokeMonths === 0 && city.money >= city.diff.bankruptAt && !hasRescue(currentKey)) saveRescue(city, currentKey);
   if (city.bankrupt) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); }
   dirty = true;
   unsaved = false;
@@ -373,6 +373,7 @@ function frame(now: number): void {
   const dt = Math.min(250, now - last);
   last = now;
 
+  if (city.bankrupt && speed > 0) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); }
   const ms = TICK_MS[speed];
   if (ms > 0) {
     acc += dt;
@@ -386,8 +387,8 @@ function frame(now: number): void {
       if (r.monthEnded) {
         hud.update(city);
         if (r.messages.length) hud.setStatus(r.messages[0]);
-        if (!demoMode && currentKey && city.brokeMonths === 1 && lastBroke === 0 && !city.bankrupt) saveRescue(city, currentKey);
-        lastBroke = city.brokeMonths;
+        // every six months of sound finances, keep a photo to fall back on after a bankruptcy
+        if (!demoMode && currentKey && !city.bankrupt && city.brokeMonths === 0 && city.money >= city.diff.bankruptAt && (city.year * 12 + city.month) % 6 === 0) saveRescue(city, currentKey);
         if (city.bankrupt) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); break; }
       }
     }
@@ -450,6 +451,7 @@ function boot(): void {
       else if (burning >= 0) renderer.centerOnTile(burning % city.size, Math.floor(burning / city.size));
     }
     if (params.get('panel') === 'budget') hud.openPanel('panel-budget');
+    if (params.get('panel') === 'cities') hud.openPanel('panel-cities');
     if (params.get('panel') === 'journal') { hud.openPanel('panel-journal'); hud.update(city); }
     if (params.has('welcome')) { setSpeed(0); hud.openWelcome(true); }
     requestAnimationFrame(frame);
@@ -476,6 +478,9 @@ function boot(): void {
 }
 
 boot();
+
+
+
 
 
 

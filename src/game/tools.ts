@@ -3,7 +3,7 @@ import { t } from '../i18n';
 import { STRUCTS, isStructTool, structName } from './structs';
 import { touchesWater } from './sim';
 import { applyTerraform, planLevel, planRaise, type TerraformPlan } from './terraform';
-import { COST, Overlay, Terrain, ZONE_OF_TOOL, isZone, type Tool } from './types';
+import { COST, Overlay, TOOL_UNLOCK, Terrain, ZONE_OF_TOOL, isZone, type Tool } from './types';
 
 const LINE_TOOLS: Tool[] = ['road', 'rail', 'highway', 'wire'];
 
@@ -30,6 +30,8 @@ const FLAT_REASON = () => t('reason.flat');
 export function planTool(city: City, tool: Tool, from: Pt, to: Pt): ToolPlan {
   if (isStructTool(tool)) return planStruct(city, tool, to);
   if (tool === 'raise' || tool === 'lower' || tool === 'level') return planTerraform(city, tool, from, to);
+  const unlock = TOOL_UNLOCK[tool];
+  if (unlock && city.maxPop < unlock) return { tool, tiles: [], cost: 0, valid: false, reason: t('reason.locked', { pop: unlock.toLocaleString() }) };
   const candidates = LINE_TOOLS.includes(tool) ? lPath(from, to) : rect(from, to);
   const tiles: number[] = [];
   let cost = 0;

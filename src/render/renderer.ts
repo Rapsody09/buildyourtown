@@ -188,7 +188,7 @@ export class Renderer {
           else if (s.type === 'park') {
             const variant = hash2(s.x, s.y, 11) & 3;
             key = `park:${this.parkMask(city, s.x, s.y)}:${variant}:${variant === 2 && animate ? Math.floor(time / 260) % 3 : 0}`;
-          } else if (s.type === 'bigpark' && animate) key = `st:bigpark:${Math.floor(time / 260) % 3}`;
+          } else if (s.type === 'bigpark') key = `st:bigpark:${animate ? Math.floor(time / 260) % 3 : 0}:${hash2(s.x, s.y, 13) & 3}:${this.bigParkMask(city, s.x, s.y)}`;
           ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
           if (animate && x === s.x && y === s.y) this.drawEffects(city, key, s.x, s.y, ox, oy, hw, hh, hs, scale, time, true);
           if (showMarkers && x === s.x && y === s.y && STRUCTS[s.type].consumes && !powered[i]) {
@@ -528,6 +528,13 @@ export class Renderer {
     ctx.fillStyle = '#e04848';
     ctx.fillRect(-10, -1.8, 3, 3.6);
     ctx.restore();
+  }
+
+  /** Sides of a 2x2 big park that touch another big park (N=1 E=2 S=4 W=8): hedges open and paths join there. */
+  private bigParkMask(city: City, x: number, y: number): number {
+    const big = (xx: number, yy: number) => city.inBounds(xx, yy) && city.overlay[city.idx(xx, yy)] === Overlay.Struct && city.structAt(city.idx(xx, yy))?.type === 'bigpark';
+    return (big(x, y - 1) && big(x + 1, y - 1) ? 1 : 0) | (big(x + 2, y) && big(x + 2, y + 1) ? 2 : 0)
+      | (big(x, y + 2) && big(x + 1, y + 2) ? 4 : 0) | (big(x - 1, y) && big(x - 1, y + 1) ? 8 : 0);
   }
 
   /** Which of the four neighbours are small parks too (N=1 E=2 S=4 W=8): their paths join up. */

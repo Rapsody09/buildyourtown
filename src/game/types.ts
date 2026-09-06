@@ -94,6 +94,8 @@ export const DIFFICULTIES: Record<'facile' | 'moyen' | 'difficile', DifficultyDe
 export type Difficulty = keyof typeof DIFFICULTIES;
 /** months in a row under the difficulty's funds floor before the council removes the mayor */
 export const BANKRUPT_MONTHS = 6;
+/** tools (not buildings) that unlock with the population reached */
+export const TOOL_UNLOCK: Partial<Record<Tool, number>> = { rail: 5000, highway: 10000 };
 
 export const POP_PER_LEVEL = [0, 8, 16, 32, 64, 128];
 export const JOBS_C_PER_LEVEL = [0, 6, 12, 24, 48, 96];

@@ -26,7 +26,10 @@ Erwann avec Claude Fable 5.1
 - Réseaux : routes, ponts, lignes haute tension, voie ferrée et gares,
   autoroutes, dépôts de bus, port, aéroport.
 - Énergie (éolien, charbon, gaz, nucléaire), eau, police, pompiers, écoles,
-  hôpitaux, parcs, récompenses de maire dont l'arcologie.
+  hôpitaux, parcs, récompenses de maire dont l'arcologie. Les équipements
+  lourds se débloquent avec la population : dépôt de bus et grand parc à
+  1 000 habitants, hôpital et centrale à gaz à 2 500, rail et gare à 5 000,
+  autoroute et port à 10 000, aéroport et nucléaire à 20 000.
 - Simulation mensuelle : demande, valeur foncière, pollution, criminalité,
   trajets domicile-emploi et embouteillages, budget détaillé, emprunts,
   arrêtés municipaux, trois niveaux de difficulté.
@@ -115,8 +118,9 @@ commandes de vitesse.
   fréquence des catastrophes et le taux des emprunts.
 - **Faillite** : six mois d'affilée sous le seuil de la difficulté (−10 000 $ en
   facile, −5 000 $ en moyen, 0 $ en difficile) et le conseil municipal vous
-  démet. On peut alors reprendre la partie juste avant la crise, grâce à une
-  photo prise au premier mois sous le seuil, ou fonder une autre ville.
+  démet. On peut alors reprendre la partie à la dernière période saine, grâce
+  à une photo prise tous les six mois tant que les comptes tiennent, ou fonder
+  une autre ville.
 - **Catastrophes** : aléatoires, plus fréquentes en difficile. Ce qui brûle
   ou s'écroule laisse des décombres à déblayer ; une zone privée de courant
   ou d'accès se vide lentement, le temps de réparer.
