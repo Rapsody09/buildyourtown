@@ -8,9 +8,9 @@ import { STRUCTS, isStructTool, structDesc, structName } from './game/structs';
 import { applyPlan, planTool, unitCost, type Pt, type ToolPlan } from './game/tools';
 import {
   DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, NO_ROAD, Overlay, POP_PER_LEVEL, ROAD_CAPACITY, TOOL_UNLOCK, Terrain, ZONE_COLOR, isZone,
-  type DataMap, type Difficulty, type DisasterKind, type Tool,
+  type DataMap, type Difficulty, type DisasterKind, type LogEntry, type Tool,
 } from './game/types';
-import { type Lang, fmtInt, fmtMoney, months, setLang, t } from './i18n';
+import { type Lang, fmtInt, fmtMoney, fmtParams, months, setLang, t } from './i18n';
 import { Renderer } from './render/renderer';
 import { deleteSave, getCurrentKey, hasRescue, listSaves, loadCity, loadRescue, migrateLegacy, newKey, saveCity, saveRescue, setCurrentKey } from './save';
 import { Hud, type QueryInfo } from './ui/hud';
@@ -58,6 +58,8 @@ let hover: Pt | null = null;
 let dragFrom: Pt | null = null;
 let plan: ToolPlan | null = null;
 let dirty = true;
+/** newest journal entry already shown as a popup */
+let lastLog: LogEntry | undefined;
 /** two-finger gesture in progress: no animation frames, the camera commits are drawn at once */
 let gesturing = false;
 let unsaved = false;
@@ -174,6 +176,7 @@ function foundCity(name: string, difficulty: Difficulty, seed: number): void {
 
 function startCity(): void {
   renderer.city = city;
+  lastLog = city.log[0];
   hud.setCityName(city.name);
   recomputeRoadDist(city);
   refreshGrid(city);
@@ -188,6 +191,31 @@ function startCity(): void {
   if (city.bankrupt) { setSpeed(0); hud.openBankrupt(city, !!currentKey && hasRescue(currentKey)); }
   dirty = true;
   unsaved = false;
+}
+
+/** Floats the journal entries that matter over the map: disasters, population milestones and unlocks, the bankruptcy countdown. */
+function announceLog(): void {
+  if (city.log[0] === lastLog) return;
+  const at = lastLog ? city.log.indexOf(lastLog) : -1;
+  const fresh = city.log.slice(0, at < 0 ? city.log.length : at).reverse();
+  lastLog = city.log[0];
+  let milestone = '';
+  const unlocked: string[] = [];
+  for (const e of fresh) {
+    if (!e.key) continue;
+    const text = t(e.key, fmtParams(e.params));
+    if (e.kind === 'reward') unlocked.push(String(e.params?.name ?? ''));
+    else if (e.key === 'log.milestone') milestone = text;
+    else if (e.kind === 'disaster' && e.key !== 'log.bankrupt') {
+      const { x, y } = e.params ?? {};
+      const go = typeof x === 'number' && typeof y === 'number' ? () => { renderer.centerOnTile(x, y); dirty = true; } : undefined;
+      hud.toast(text, 'alert', { ms: 6000, onClick: go });
+    } else if (e.key === 'advice.bankruptSoon') hud.toast(text, 'alert', { ms: 6000 });
+  }
+  if (milestone || unlocked.length) {
+    const parts = [milestone, unlocked.length ? t('toast.unlocked', { names: unlocked.join(', ') }) : ''];
+    hud.toast(parts.filter(Boolean).join(' '), 'good', { ms: 5000 });
+  }
 }
 
 function clickPreview(p: Pt): void {
@@ -385,6 +413,7 @@ function frame(now: number): void {
       steps++;
       dirty = true;
       unsaved = true;
+      announceLog();
       if (r.monthEnded) {
         hud.update(city);
         if (r.messages.length) hud.setStatus(r.messages[0]);
@@ -479,6 +508,7 @@ function boot(): void {
 }
 
 boot();
+
 
 
 

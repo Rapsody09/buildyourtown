@@ -86,7 +86,10 @@ nom, le coût et la touche au survol. Le groupe Transport réunit routes, rails,
 autoroutes et équipements ; Énergie, Eau et Services ouvrent la liste de leurs
 bâtiments ; Parcs contient aussi les monuments à débloquer ; le groupe
 Bulldozer réunit la démolition et les outils de relief. La loupe, en tête de
-barre, est le mode par défaut : un clic renseigne sur une case.
+barre, est le mode par défaut : un clic renseigne sur une case. Les événements
+marquants (catastrophes, paliers de population et déblocages, compte à rebours
+de faillite) s'affichent en surimpression sur la carte ; cliquer sur un message
+de catastrophe centre la vue dessus.
 
 **Sur mobile ou tablette**, la barre d'outils passe en bas de l'écran et les
 panneaux s'ouvrent en volets. Un doigt déplace la vue ; deux doigts zooment.

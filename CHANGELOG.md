@@ -3,6 +3,15 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.6.2 — 2026-09-06
+
+Des messages qui se voient.
+
+- Les événements marquants s'affichent en surimpression sur la carte, comme
+  les refus de construction : catastrophes (un clic sur le message centre la
+  vue dessus), paliers de population avec les équipements débloqués, compte à
+  rebours avant la faillite.
+
 ## 0.6.1 — 2026-09-06
 
 Correctif.

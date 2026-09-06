@@ -322,12 +322,14 @@ const D: Record<string, [string, string]> = {
 
   // ---- log
   'log.milestone': ['La ville dépasse {n} habitants.', 'The city passes {n} residents.'],
-  'log.reward': ['Récompense débloquée : {name} (menu Récompenses).', 'Reward unlocked: {name} (Rewards menu).'],
+  'log.reward': ['Débloqué avec la population : {name}.', 'Unlocked by population: {name}.'],
+  'toast.unlocked': ['Débloqué : {names}.', 'Unlocked: {names}.'],
+  'toast.see': ['Voir ›', 'Show ›'],
   'log.founded': ['{name} est fondée.', '{name} is founded.'],
-  'log.fire': ['Un incendie s\'est déclaré en ({x}, {y}).', 'A fire broke out at ({x}, {y}).'],
+  'log.fire': ['Un incendie s\'est déclaré.', 'A fire has broken out.'],
   'log.flood': ['Inondation : la mer envahit les rives, {n} constructions détruites.', 'Flood: the sea swamps the shores, {n} buildings destroyed.'],
-  'log.tornado': ['Une tornade touche terre en ({x}, {y}).', 'A tornado touches down at ({x}, {y}).'],
-  'log.quake': ['Séisme centré en ({x}, {y}) : {n} constructions détruites.', 'Earthquake centred at ({x}, {y}): {n} buildings destroyed.'],
+  'log.tornado': ['Une tornade touche terre.', 'A tornado touches down.'],
+  'log.quake': ['Séisme : {n} constructions détruites.', 'Earthquake: {n} buildings destroyed.'],
 
   // ---- query panel
   'query.tile': ['Case {x}, {y}', 'Tile {x}, {y}'],
@@ -412,6 +414,10 @@ export function fmtCompact(n: number): string {
   if (a >= 1e4) return `${sign}${(a / 1e3).toLocaleString(loc, { maximumSignificantDigits: 3 })} k`;
   return `${sign}${Math.round(a).toLocaleString(loc)}`;
 }
+
+/** numbers inside dictionary params rendered with the locale's thousands separator */
+export const fmtParams = (p?: Record<string, string | number>) =>
+  p && Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' ? fmtInt(v) : v]));
 
 export function fmtInt(n: number): string {
   return Math.round(n).toLocaleString(lang === 'fr' ? 'fr-FR' : 'en-US');

@@ -6,7 +6,7 @@ import {
   BANKRUPT_MONTHS, BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, ORDINANCES, ORDINANCE_KEYS,
   Overlay, Terrain, type DataMap, type Dept, type Difficulty, type Ordinance, type StructType, type Tool,
 } from '../game/types';
-import { fmtCompact, fmtInt, fmtMoney, lang, months, t, type Lang } from '../i18n';
+import { fmtCompact, fmtInt, fmtMoney, fmtParams, lang, months, t, type Lang } from '../i18n';
 import { renderIcon } from '../render/sprites';
 import { Renderer } from '../render/renderer';
 import type { SaveEntry } from '../save';
@@ -125,6 +125,9 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string): T => {
   return el as T;
 };
 
+type ToastKind = 'error' | 'info' | 'alert' | 'good';
+interface ToastMsg { text: string; kind: ToastKind; ms: number; onClick?: () => void }
+
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Record<string, string> = {}, ...children: (Node | string)[]): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
@@ -140,9 +143,6 @@ const fmtPct = (x: number) => `${Math.round(x * 100)} %`;
 /** small screens: panels become bottom sheets, the toolbar a horizontal strip */
 const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
 /** numbers stored in log entries are formatted in the current language when displayed */
-const fmtParams = (p?: Record<string, string | number>) =>
-  p && Object.fromEntries(Object.entries(p).map(([k, v]) => [k, typeof v === 'number' ? fmtInt(v) : v]));
-
 /** Static labels in index.html carry data-i18n / data-i18n-title attributes. */
 function translateStatic(): void {
   for (const el of document.querySelectorAll<HTMLElement>('[data-i18n]')) el.textContent = t(el.dataset.i18n!);
@@ -169,6 +169,8 @@ export class Hud {
   private lastDemand = { r: 0, c: 0, i: 0, powerUse: 0, powerCap: 0, water: 0 };
   private currentTool: Tool = 'query';
   private toastTimer = 0;
+  private toastCurrent: ToastMsg | null = null;
+  private toastQueue: ToastMsg[] = [];
   private toolButtons = new Map<Tool, HTMLButtonElement>();
   private groupButtons = new Map<string, { button: HTMLButtonElement; items: FlyoutItem[] }>();
   private speedButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('#speed button[data-speed]'));
@@ -905,20 +907,49 @@ export class Hud {
     }
   }
 
-  /** A short floating message over the map, for refusals: readable even when the status bar is hidden. */
-  toast(text: string, kind: 'error' | 'info' = 'error'): void {
-    const el = $('toast');
-    el.textContent = text;
-    el.className = kind;
-    el.hidden = false;
-    window.clearTimeout(this.toastTimer);
-    this.toastTimer = window.setTimeout(() => { el.hidden = true; }, 2600);
+  /**
+   * A short floating message over the map: refusals, disasters, unlocks. Readable even when the status
+   * bar is hidden. A refusal answers a click and shows at once; event messages wait their turn.
+   */
+  toast(text: string, kind: ToastKind = 'error', opts: { ms?: number; onClick?: () => void } = {}): void {
+    const msg: ToastMsg = { text, kind, ms: opts.ms ?? 2600, onClick: opts.onClick };
     if (kind === 'error') {
+      // an interrupted event message comes back after the refusal
+      if (this.toastCurrent && this.toastCurrent.kind !== 'error') this.toastQueue.unshift(this.toastCurrent);
+      this.showToast(msg);
+    } else if (!this.toastCurrent) {
+      this.showToast(msg);
+    } else if (this.toastQueue.length < 4) {
+      this.toastQueue.push(msg);
+    }
+  }
+
+  private showToast(m: ToastMsg): void {
+    const el = $('toast');
+    el.replaceChildren(m.text, ...(m.onClick ? [h('span', { class: 'see', text: t('toast.see') })] : []));
+    el.className = m.kind + (m.onClick ? ' go' : '');
+    el.onclick = m.onClick ? () => { m.onClick?.(); this.hideToast(); } : null;
+    // restart the entrance animation when one message follows another
+    el.hidden = true;
+    void el.offsetWidth;
+    el.hidden = false;
+    this.toastCurrent = m;
+    window.clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => this.hideToast(), m.ms);
+    if (m.kind === 'error') {
       const money = document.querySelector('.stat.money')!;
       money.classList.remove('flash');
       void (money as HTMLElement).offsetWidth;
-      if (text === t('reason.funds')) money.classList.add('flash');
+      if (m.text === t('reason.funds')) money.classList.add('flash');
     }
+  }
+
+  private hideToast(): void {
+    window.clearTimeout(this.toastTimer);
+    this.toastCurrent = null;
+    const next = this.toastQueue.shift();
+    if (next) this.showToast(next);
+    else $('toast').hidden = true;
   }
 
   setStatus(text: string, transient = false): void {

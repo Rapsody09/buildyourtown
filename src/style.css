@@ -331,6 +331,10 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   animation: toast-in 0.18s ease-out;
 }
 #toast.info { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+#toast.alert { background: #c8321f; border: 1px solid #ff8f7d; }
+#toast.good { background: var(--ok); color: #142a08; }
+#toast.go { pointer-events: auto; cursor: pointer; }
+#toast .see { margin-left: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-size: 12px; white-space: nowrap; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .stat.money.flash { animation: money-flash 0.7s ease-out; }
 @keyframes money-flash { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px var(--danger); } }
