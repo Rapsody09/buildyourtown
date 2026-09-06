@@ -248,6 +248,7 @@ function commitPlan(): void {
     computeStats(city);
     hud.update(city);
     unsaved = true;
+    if (plan.note) hud.toast(plan.note, 'info', { ms: 3500 });
   } else {
     hud.setStatus(res.reason, true);
     hud.toast(res.reason);
@@ -271,7 +272,7 @@ function queryTile(p: Pt): void {
     return t('query.traffic', { n: fmtInt(n), state: t(state) });
   };
 
-  if (o === Overlay.Highway) { info.title = t(water ? 'query.hwyBridge' : 'query.highway'); info.lines.push(trafficLine()); }
+  if (o === Overlay.Highway) { info.title = t(water ? 'query.hwyBridge' : city.rail[i] ? 'query.crossing' : 'query.highway'); info.lines.push(trafficLine()); }
   else if (water && o !== Overlay.Road) info.title = t(city.rail[i] ? 'query.railBridge' : 'query.water');
   else if (o === Overlay.Rubble) { info.title = t('query.rubble'); info.lines.push(t('query.rubbleHint')); }
   else if (o === Overlay.None) info.title = t(city.rail[i] ? 'query.rail' : 'query.bare');
@@ -508,6 +509,12 @@ function boot(): void {
 }
 
 boot();
+
+
+
+
+
+
 
 
 

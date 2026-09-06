@@ -214,19 +214,39 @@ export class Renderer {
             this.drawEffects(city, key, x, y, ox, oy, hw, hh, hs, scale, time, powered[i] === 1);
             this.drawCraneAt(city, i, px, py, ax, ay, scale, time);
           }
+          let carsDrawn = false;
+          let lift: Corners | null = null;
           if (rail[i]) {
-            const m = (city.hasRail(x, y - 1) ? 1 : 0) | (city.hasRail(x + 1, y) ? 2 : 0)
-              | (city.hasRail(x, y + 1) ? 4 : 0) | (city.hasRail(x - 1, y) ? 8 : 0);
-            ctx.drawImage(this.sprites.get(`rail:${m}:${pat}`, scale), px - ax, py - ay);
+            const m = this.railMask(city, x, y);
+            if (ov === Overlay.Highway && this.railDeck(city, x, y)) {
+              // the highway traffic passes under the deck
+              if (animate) { this.drawCars(city, x, y, i, px, py, scale, c, time); carsDrawn = true; }
+              ctx.drawImage(this.sprites.get(`railover:${m}:${pat}`, scale), px - ax, py - ay);
+              lift = [1.5, 1.5, 1.5, 1.5];
+            } else {
+              const ramp = ov === Overlay.Road ? -1 : this.railRamp(city, x, y, m);
+              const crossing = ov === Overlay.Road ? ':x' : ov === Overlay.Highway ? ':X' : '';
+              const rkey = `rail:${m}:${pat}${crossing || (ramp >= 0 ? `:r${ramp}` : '')}`;
+              ctx.drawImage(this.sprites.get(rkey, scale), px - ax, py - ay);
+              if (ramp >= 0) lift = bridgeSlope(ramp);
+              if (animate && crossing) this.drawEffects(city, rkey, x, y, ox, oy, hw, hh, hs, scale, time, this.trainNear(x, y));
+            }
           }
           if (wire[i]) {
             const m = (this.wireLink(city, x, y - 1) ? 1 : 0) | (this.wireLink(city, x + 1, y) ? 2 : 0)
               | (this.wireLink(city, x, y + 1) ? 4 : 0) | (this.wireLink(city, x - 1, y) ? 8 : 0);
             ctx.drawImage(this.sprites.get(`wire:${m}:${pat}`, scale), px - ax, py - ay);
           }
-          if (animate && (ov === Overlay.Road || ov === Overlay.Highway)) this.drawCars(city, x, y, i, px, py, scale, c, time);
+          if (animate && (ov === Overlay.Road || ov === Overlay.Highway)) {
+            if (!carsDrawn) this.drawCars(city, x, y, i, px, py, scale, c, time);
+            this.drawEffects(city, key, x, y, ox, oy, hw, hh, hs, scale, time, true);
+          }
           const vehicles = this.vehiclesByTile.get(i);
-          if (vehicles) this.drawVehicles(vehicles, px, py, hw, hh, ax, ay, scale, [c[0] - base, c[1] - base, c[2] - base, c[3] - base]);
+          if (vehicles) {
+            const rel: Corners = [c[0] - base, c[1] - base, c[2] - base, c[3] - base];
+            if (lift) for (let k = 0; k < 4; k++) rel[k] += lift[k];
+            this.drawVehicles(vehicles, px, py, hw, hh, ax, ay, scale, rel);
+          }
         }
         if (fire[i]) ctx.drawImage(this.sprites.get(`fire:${(Math.floor(time / 120) + x + y) % 3}`, scale), px - ax, py - ay);
         if (flood[i]) {
@@ -306,6 +326,25 @@ export class Renderer {
           ctx.arc(sx + (ph * 9 + p * 1.2) * scale, sy - ph * 18 * scale, r, 0, Math.PI * 2);
           ctx.fill();
         }
+      } else if (e.kind === 'signal') {
+        // a sixteen-second cycle per junction: N/S approaches get the first half, E/W the second, with a moment of amber each
+        const ph = (time / 1000 + (seed % 16)) % 16;
+        const own = e.color === 'y' ? ph : (ph + 8) % 16;
+        ctx.fillStyle = own < 6.8 ? '#3ddc5a' : own < 8 ? '#ffb020' : '#ff3b30';
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1.2, 1.4 * scale), 0, Math.PI * 2);
+        ctx.fill();
+      } else if (e.kind === 'xing') {
+        if (!active || Math.floor(time / 350) % 2 === k % 2) continue;
+        ctx.fillStyle = e.color;
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(3, 3.5 * scale), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1.2, 1.5 * scale), 0, Math.PI * 2);
+        ctx.fill();
       } else if ((Math.floor(time / 600) + seed + k) % 2 === 0) {
         ctx.fillStyle = e.color;
         ctx.globalAlpha = 0.35;
@@ -575,7 +614,8 @@ export class Renderer {
     const alongX = city.isRoadway(x + 1, y) || city.isRoadway(x - 1, y);
     const alongY = city.isRoadway(x, y + 1) || city.isRoadway(x, y - 1);
     if (alongX === alongY) return;
-    const highway = city.overlay[i] === Overlay.Highway;
+    // a highway tile narrowing into a road carries road traffic
+    const highway = city.overlay[i] === Overlay.Highway && this.roadArms(city, x, y) === 0;
     const cars = Math.min(highway ? 8 : 4, Math.floor(city.traffic[i] / (highway ? 250 : 150)));
     if (cars === 0) return;
     const { ctx } = this;
@@ -585,12 +625,12 @@ export class Renderer {
     const base = Math.min(c[0], c[1], c[2], c[3]);
     // on a bridge the cars ride the deck, ramps included
     const rel: Corners = city.terrain[i] === Terrain.Water ? bridgeSlope(this.rampMask(city, x, y)) : [c[0] - base, c[1] - base, c[2] - base, c[3] - base];
-    // lane centres on the asphalt; lanes below the middle line drive one way, the others back
+    // lane centres on the asphalt; right-hand traffic: along x the far lanes (v > 0.5) go +u, along y the near lanes (u < 0.5) go +v
     const lanes = highway ? [0.26, 0.42, 0.58, 0.74] : [0.4, 0.6];
     for (let k = 0; k < cars; k++) {
       const seed = hash2(x, y, 200 + k);
       const lane = lanes[k % lanes.length];
-      const dir = lane < 0.5 ? 1 : -1;
+      const dir = (alongX ? lane > 0.5 : lane < 0.5) ? 1 : -1;
       const speed = 0.25 + ((seed & 0xff) / 255) * 0.2;
       const t = ((time / 1000) * speed * dir + (seed >> 8) / 65536 * 4) % 1;
       const pos = t < 0 ? t + 1 : t;
@@ -750,14 +790,14 @@ export class Renderer {
     const h = hash2(x, y, 7);
     if (terrain === Terrain.Water) {
       if (overlay === Overlay.Road) return `bridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}`;
-      if (overlay === Overlay.Highway) return `hwybridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}`;
+      if (overlay === Overlay.Highway) return `hwybridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}:${this.roadArms(city, x, y)}`;
       return `water:${h & 1}:${waterFrame}`;
     }
     switch (overlay) {
       case Overlay.None: return `grass:${pat}:${h & 3}`;
       case Overlay.Tree: return `tree:${pat}:${h & 3}`;
       case Overlay.Road: return `road:${this.roadMask(city, x, y)}:${pat}`;
-      case Overlay.Highway: return `hwy:${this.roadMask(city, x, y)}:${pat}`;
+      case Overlay.Highway: return `hwy:${this.roadMask(city, x, y)}:${pat}:${this.roadArms(city, x, y)}`;
       case Overlay.Rubble: return `rubble:${pat}:${h & 3}`;
       default:
         if (level === 0) return `zone:${overlay}`;
@@ -769,6 +809,52 @@ export class Renderer {
   private rampMask(city: City, x: number, y: number): number {
     const land = (xx: number, yy: number) => city.inBounds(xx, yy) && city.isRoadway(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
     return (land(x, y - 1) ? 1 : 0) | (land(x + 1, y) ? 2 : 0) | (land(x, y + 1) ? 4 : 0) | (land(x - 1, y) ? 8 : 0);
+  }
+
+  private railMask(city: City, x: number, y: number): number {
+    return (city.hasRail(x, y - 1) ? 1 : 0) | (city.hasRail(x + 1, y) ? 2 : 0) | (city.hasRail(x, y + 1) ? 4 : 0) | (city.hasRail(x - 1, y) ? 8 : 0);
+  }
+
+  /** A track crossing a highway rides a deck when it runs straight and both neighbours can climb to it, or carry a deck of their own. */
+  private railDeck(city: City, x: number, y: number): boolean {
+    if (!city.inBounds(x, y)) return false;
+    const i = city.idx(x, y);
+    if (!city.rail[i] || city.overlay[i] !== Overlay.Highway || city.terrain[i] !== Terrain.Land) return false;
+    const m = this.railMask(city, x, y);
+    if (m !== 5 && m !== 10) return false;
+    const dx = m === 10 ? 1 : 0, dy = m === 5 ? 1 : 0;
+    return this.rampable(city, x - dx, y - dy, m) && this.rampable(city, x + dx, y + dy, m);
+  }
+
+  /** a straight plain rail tile on land, or another highway crossing in line */
+  private rampable(city: City, x: number, y: number, m: number): boolean {
+    if (!city.inBounds(x, y)) return false;
+    const i = city.idx(x, y);
+    if (!city.rail[i] || city.terrain[i] !== Terrain.Land || this.railMask(city, x, y) !== m) return false;
+    const o = city.overlay[i];
+    return o === Overlay.None || o === Overlay.Tree || o === Overlay.Highway;
+  }
+
+  /** ramp bits (sides staying on the ground) of a plain rail tile next to a deck, -1 when the track stays level */
+  private railRamp(city: City, x: number, y: number, m: number): number {
+    if ((m !== 5 && m !== 10) || city.terrain[city.idx(x, y)] !== Terrain.Land) return -1;
+    const dx = m === 10 ? 1 : 0, dy = m === 5 ? 1 : 0;
+    const before = this.railDeck(city, x - dx, y - dy), after = this.railDeck(city, x + dx, y + dy);
+    if (!before && !after) return -1;
+    const [bitBefore, bitAfter] = m === 5 ? [1, 4] : [8, 2];
+    return (before ? 0 : bitBefore) | (after ? 0 : bitAfter);
+  }
+
+  /** a train within a few tiles: the crossing lamps blink */
+  private trainNear(x: number, y: number): boolean {
+    for (const w of this.walkers) if (w.kind === 'train' && Math.abs(w.x - x) <= 4 && Math.abs(w.y - y) <= 4) return true;
+    return false;
+  }
+
+  /** sides of a highway tile where a plain road continues: the sprite narrows those arms */
+  private roadArms(city: City, x: number, y: number): number {
+    const r = (xx: number, yy: number) => city.inBounds(xx, yy) && city.overlay[city.idx(xx, yy)] === Overlay.Road;
+    return (r(x, y - 1) ? 1 : 0) | (r(x + 1, y) ? 2 : 0) | (r(x, y + 1) ? 4 : 0) | (r(x - 1, y) ? 8 : 0);
   }
 
   private roadMask(city: City, x: number, y: number): number {

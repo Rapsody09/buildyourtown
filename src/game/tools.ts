@@ -22,6 +22,8 @@ export interface ToolPlan {
   terra?: TerraformPlan;
   valid: boolean;
   reason?: string;
+  /** why some tiles of a valid line were left out */
+  note?: string;
 }
 
 const FLAT_REASON = () => t('reason.flat');
@@ -32,10 +34,19 @@ export function planTool(city: City, tool: Tool, from: Pt, to: Pt): ToolPlan {
   if (tool === 'raise' || tool === 'lower' || tool === 'level') return planTerraform(city, tool, from, to);
   const unlock = TOOL_UNLOCK[tool];
   if (unlock && city.maxPop < unlock) return { tool, tiles: [], cost: 0, valid: false, reason: t('reason.locked', { pop: unlock.toLocaleString() }) };
-  const candidates = LINE_TOOLS.includes(tool) ? lPath(from, to) : rect(from, to);
+  if (!LINE_TOOLS.includes(tool)) return planTiles(city, tool, rect(from, to));
+  // a line goes along x first; when a crossing rule or an obstacle cuts that L, the other L may fare better
+  const a = planTiles(city, tool, lPath(from, to));
+  if (from.x === to.x || from.y === to.y) return a;
+  const b = planTiles(city, tool, lPath(from, to, true));
+  return b.tiles.length > a.tiles.length ? b : a;
+}
+
+function planTiles(city: City, tool: Tool, candidates: Pt[]): ToolPlan {
   const tiles: number[] = [];
   let cost = 0;
   let sloped = 0;
+  let note: string | undefined;
   for (let k = 0; k < candidates.length; k++) {
     const p = candidates[k];
     if (!city.inBounds(p.x, p.y)) continue;
@@ -44,12 +55,12 @@ export function planTool(city: City, tool: Tool, from: Pt, to: Pt): ToolPlan {
       if (ZONE_OF_TOOL[tool] !== undefined && city.terrain[i] === Terrain.Land && !city.isFlat(p.x, p.y)) sloped++;
       continue;
     }
-    if ((tool === 'rail' || tool === 'road') && !crossingOk(city, tool, candidates, k)) continue;
+    if ((tool === 'rail' || tool === 'road' || tool === 'highway') && !crossingOk(city, tool, candidates, k)) { note = t('reason.crossing'); continue; }
     tiles.push(i);
     cost += tileCost(city, tool, i);
   }
   const valid = tiles.length > 0;
-  return { tool, tiles, cost, valid, reason: !valid && sloped ? FLAT_REASON() : undefined };
+  return { tool, tiles, cost, valid, note, reason: valid ? undefined : sloped ? FLAT_REASON() : note };
 }
 
 function planTerraform(city: City, tool: 'raise' | 'lower' | 'level', from: Pt, to: Pt): ToolPlan {
@@ -106,17 +117,17 @@ function planStruct(city: City, tool: Tool & keyof typeof STRUCTS, at: Pt): Tool
 }
 
 /**
- * A railway may cross a road (and a road a railway) only at a level crossing:
- * the existing way runs straight through the tile and the new one goes
- * straight across it. No track laid along a street, no crossing on a bend.
+ * A railway may cross a road or a highway (and they may cross a railway) only at a level
+ * crossing: the existing way runs straight through the tile and the new one goes straight
+ * across it. No track laid along a street, no crossing on a bend or a junction.
  */
-function crossingOk(city: City, tool: 'rail' | 'road', path: Pt[], k: number): boolean {
+function crossingOk(city: City, tool: 'rail' | 'road' | 'highway', path: Pt[], k: number): boolean {
   const p = path[k];
   const i = city.idx(p.x, p.y);
-  const onRoad = tool === 'rail' && city.overlay[i] === Overlay.Road;
-  const onRail = tool === 'road' && city.rail[i] === 1;
+  const onRoad = tool === 'rail' && city.isRoadway(p.x, p.y);
+  const onRail = tool !== 'rail' && city.rail[i] === 1;
   if (!onRoad && !onRail) return true;
-  const isRoad = (x: number, y: number) => city.inBounds(x, y) && city.overlay[city.idx(x, y)] === Overlay.Road;
+  const isRoad = (x: number, y: number) => city.isRoadway(x, y);
   const isRail = (x: number, y: number) => city.inBounds(x, y) && city.rail[city.idx(x, y)] === 1;
   const way = onRoad ? isRoad : isRail;
   // the way already there: continues on both sides along one axis, nothing on the other
@@ -160,15 +171,15 @@ function canApply(city: City, tool: Tool, i: number): boolean {
   if (o === Overlay.Rubble || city.flood[i]) return false;
   if (city.terrain[i] !== Terrain.Land) {
     // bridges: roads and highways on open water, rail on open water or over a road bridge, pylons in water
-    if (tool === 'rail') return city.rail[i] === 0 && (o === Overlay.None || o === Overlay.Road);
+    if (tool === 'rail') return city.rail[i] === 0 && (o === Overlay.None || o === Overlay.Road || o === Overlay.Highway);
     if (tool === 'wire') return city.wire[i] === 0 && o === Overlay.None;
     return (tool === 'road' || tool === 'highway') && o === Overlay.None;
   }
   if (tool === 'wire') return city.wire[i] === 0 && (o === Overlay.None || o === Overlay.Tree || o === Overlay.Road);
-  if (tool === 'rail') return city.rail[i] === 0 && (o === Overlay.None || o === Overlay.Tree || o === Overlay.Road);
+  if (tool === 'rail') return city.rail[i] === 0 && (o === Overlay.None || o === Overlay.Tree || o === Overlay.Road || o === Overlay.Highway);
   const buildable = o === Overlay.None || o === Overlay.Tree || (isZone(o) && city.level[i] === 0);
   if (tool === 'road') return o !== Overlay.Road && buildable;
-  if (tool === 'highway') return buildable && city.rail[i] === 0;
+  if (tool === 'highway') return buildable;
   const zone = ZONE_OF_TOOL[tool];
   if (zone === undefined) return false;
   return o !== zone && buildable && city.wire[i] === 0 && city.rail[i] === 0 && city.isFlatIdx(i);
@@ -239,12 +250,18 @@ export function applyPlan(city: City, plan: ToolPlan): ApplyResult {
 }
 
 /** Horizontal then vertical segment: the classic L-shaped drag for roads and lines. */
-function lPath(a: Pt, b: Pt): Pt[] {
+/** L-shaped path from a to b: along x then y, or the other way round with `yFirst` */
+function lPath(a: Pt, b: Pt, yFirst = false): Pt[] {
   const out: Pt[] = [];
   const sx = Math.sign(b.x - a.x);
   const sy = Math.sign(b.y - a.y);
-  for (let x = a.x; x !== b.x; x += sx) out.push({ x, y: a.y });
-  for (let y = a.y; y !== b.y; y += sy) out.push({ x: b.x, y });
+  if (yFirst) {
+    for (let y = a.y; y !== b.y; y += sy) out.push({ x: a.x, y });
+    for (let x = a.x; x !== b.x; x += sx) out.push({ x, y: b.y });
+  } else {
+    for (let x = a.x; x !== b.x; x += sx) out.push({ x, y: a.y });
+    for (let y = a.y; y !== b.y; y += sy) out.push({ x: b.x, y });
+  }
   out.push({ x: b.x, y: b.y });
   return out;
 }

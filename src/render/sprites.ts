@@ -29,7 +29,8 @@ let SWAP = false;
 
 /** Animated bits a sprite asks the renderer to draw over it: smoke rising from a chimney, a blinking light. */
 export interface Effect {
-  kind: 'smoke' | 'beacon';
+  /** smoke rises when active; a beacon blinks; a signal cycles green, amber, red; a crossing lamp blinks only when active */
+  kind: 'smoke' | 'beacon' | 'signal' | 'xing';
   u: number;
   v: number;
   z: number;
@@ -272,24 +273,126 @@ function drawRoadSurface(ctx: Ctx, mask: number): void {
     ctx.stroke();
   }
   ctx.setLineDash([]);
+  // a junction: a light and a stop line on every approach
+  if (arms.length >= 3) {
+    for (const d of [1, 2, 4, 8]) {
+      if (!(m & d)) continue;
+      stopLine(ctx, d, 0.3, 0.2);
+      trafficLight(ctx, d, 0.26, 0.5 + inboundSide(d) * 0.28);
+    }
+  }
 }
+
+
+/** tile coords at distance t from the edge on side d (N=1 E=2 S=4 W=8), lateral position w across that arm */
+function armUV(d: number, t: number, w: number): [number, number] {
+  return d === 1 ? [w, t] : d === 2 ? [1 - t, w] : d === 4 ? [w, 1 - t] : [t, w];
+}
+
+/** Right-hand traffic: +1 when the kerb on the right of traffic entering from side d lies toward larger w, else -1. */
+function inboundSide(d: number): number {
+  return d === 1 || d === 2 ? -1 : 1;
+}
+
+/** screen unit vector of a sign's face, which stretches across the arm it watches: along u for N/S arms, along v for E/W arms */
+function faceAxis(d: number): Pt2 {
+  const k = 1 / Math.sqrt(5);
+  return d === 1 || d === 4 ? [2 * k, k] : [-2 * k, k];
+}
+
+/** point of a sign face centred on c (screen), radius r, angle a: the face spans `e` horizontally and screen-up vertically */
+function onFace(c: Pt2, e: Pt2, r: number, a: number): Pt2 {
+  return [c[0] + Math.cos(a) * r * e[0], c[1] + Math.cos(a) * r * e[1] - Math.sin(a) * r];
+}
+
+function strokeSeg(ctx: Ctx, a: Pt2, b: Pt2, color: string, width: number, dash: number[] = []): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.lineTo(b[0], b[1]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/** white line across the inbound half of the arm from side d, where vehicles stop */
+function stopLine(ctx: Ctx, d: number, t: number, half: number): void {
+  strokeSeg(ctx, P(...armUV(d, t, 0.5)), P(...armUV(d, t, 0.5 + inboundSide(d) * half)), '#f2f2f2', 1.6);
+}
+
+/** a signal post beside the inbound lane of side d: pole, head facing the traffic, a lamp the renderer cycles */
+function trafficLight(ctx: Ctx, d: number, t: number, w: number): void {
+  const [u, v] = armUV(d, t, w);
+  const H = 9;
+  strokeSeg(ctx, P(u, v), P(u, v, H), '#3c4046', 1.2);
+  const c = P(u, v, H + 2.6), e = faceAxis(d);
+  poly(ctx, [onFace(c, e, 1.3, 0), [c[0] + 1.3 * e[0], c[1] + 1.3 * e[1] + 2.6], [c[0] - 1.3 * e[0], c[1] - 1.3 * e[1] + 2.6], onFace(c, e, 1.3, Math.PI)], '#23262b');
+  poly(ctx, [[c[0] + 1.3 * e[0], c[1] + 1.3 * e[1] - 2.6], [c[0] + 1.3 * e[0], c[1] + 1.3 * e[1] + 2.6], [c[0] - 1.3 * e[0], c[1] - 1.3 * e[1] + 2.6], [c[0] - 1.3 * e[0], c[1] - 1.3 * e[1] - 2.6]], '#23262b');
+  currentEffects.push({ kind: 'signal', u, v, z: H + 2.6, color: d === 1 || d === 4 ? 'y' : 'x' });
+}
+
+/** a red octagon on a post, facing the traffic entering from side d */
+function stopSign(ctx: Ctx, d: number, t: number, w: number): void {
+  const [u, v] = armUV(d, t, w);
+  const H = 8, R = 2.8;
+  strokeSeg(ctx, P(u, v), P(u, v, H), '#6a6e74', 1);
+  const c = P(u, v, H + R), e = faceAxis(d);
+  ctx.beginPath();
+  for (let k = 0; k < 8; k++) {
+    const p = onFace(c, e, R, Math.PI / 8 + (k * Math.PI) / 4);
+    if (k) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#d7261e';
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+  // the word, as a bar
+  strokeSeg(ctx, onFace(c, e, 1.5, 0), onFace(c, e, 1.5, Math.PI), '#ffffff', 0.9);
+}
+
+/** St Andrew's cross on a post beside the inbound lane of side d, its barrier raised at the kerb; the lamp blinks when a train is close */
+function crossingSign(ctx: Ctx, d: number, t: number, w: number, kerb: number): void {
+  const [u, v] = armUV(d, t, w);
+  const H = 9, R = 3;
+  strokeSeg(ctx, P(u, v), P(u, v, H), '#d7d9dc', 1.1);
+  const c = P(u, v, H + 1.5), e = faceAxis(d);
+  for (const [color, lw] of [['#ffffff', 1.9], ['#e0312a', 0.8]] as [string, number][]) {
+    strokeSeg(ctx, onFace(c, e, R, Math.PI / 4), onFace(c, e, R, (5 * Math.PI) / 4), color, lw);
+    strokeSeg(ctx, onFace(c, e, R, (3 * Math.PI) / 4), onFace(c, e, R, (7 * Math.PI) / 4), color, lw);
+  }
+  const [bu, bv] = armUV(d, t, kerb);
+  strokeSeg(ctx, P(bu, bv), P(bu, bv, 11), '#e0312a', 1.6);
+  strokeSeg(ctx, P(bu, bv), P(bu, bv, 11), '#ffffff', 1.6, [2.5, 2.5]);
+  currentEffects.push({ kind: 'xing', u, v, z: H - 2, color: '#ff3b30' });
+}
+
 
 function drawRoad(ctx: Ctx, mask: number): void {
   drawGrass(ctx, mask % GRASS.length);
   drawRoadSurface(ctx, mask);
 }
 
-/** Wide, dark, four lanes and a centre barrier. */
-function drawHighwaySurface(ctx: Ctx, mask: number): void {
+/**
+ * Wide, dark, four lanes and a centre barrier. Arms flagged in `roadArms` continue as a plain road:
+ * they narrow to the road width at the edge, over half the tile on a straight run, at the mouth of a junction.
+ */
+function drawHighwaySurface(ctx: Ctx, mask: number, roadArms = 0): void {
   const m = mask === 0 ? 10 : mask;
-  const arms: [number, number, number, number][] = [];
-  if (m & 1) arms.push([0.18, 0, 0.82, 0.18]);
-  if (m & 2) arms.push([0.82, 0.18, 1, 0.82]);
-  if (m & 4) arms.push([0.18, 0.82, 0.82, 1]);
-  if (m & 8) arms.push([0, 0.18, 0.18, 0.82]);
+  const HW = 0.32, RW = 0.2; // half-widths of the highway and of a road
+  const straight = m === 5 || m === 10;
+  const start = straight ? 0.5 : 0.18; // where an arm leaves the junction pad
+  const at = (d: number, t: number, w: number): Pt2 => P(...armUV(d, t, w));
+  const dirs = [1, 2, 4, 8].filter((d) => m & d);
+  const armPoly = (d: number, g: number): Pt2[] => {
+    const wo = roadArms & d ? RW : HW;
+    return [at(d, 0, 0.5 - wo - g), at(d, 0, 0.5 + wo + g), at(d, start + g, 0.5 + HW + g), at(d, start + g, 0.5 - HW - g)];
+  };
   const rectPoly = (u0: number, v0: number, u1: number, v1: number): Pt2[] =>
     [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
-  const bd = bend(m);
+  const bd = roadArms ? null : bend(m);
   if (bd) {
     poly(ctx, bendBand(bd, 0.36), '#8d9299');
     poly(ctx, bendBand(bd, 0.32), '#484c52');
@@ -299,14 +402,10 @@ function drawHighwaySurface(ctx: Ctx, mask: number): void {
     return;
   }
   for (const pass of [0, 1]) {
-    const grow = pass === 0 ? 0.04 : 0;
+    const g = pass === 0 ? 0.04 : 0;
     const col = pass === 0 ? '#8d9299' : '#484c52';
-    poly(ctx, rectPoly(0.18 - grow, 0.18 - grow, 0.82 + grow, 0.82 + grow), col);
-    for (const [u0, v0, u1, v1] of arms) {
-      const gu = u0 === 0 || u1 === 1 ? 0 : grow;
-      const gv = v0 === 0 || v1 === 1 ? 0 : grow;
-      poly(ctx, rectPoly(u0 - gu, v0 - gv, u1 + gu, v1 + gv), col);
-    }
+    if (!straight) poly(ctx, rectPoly(0.18 - g, 0.18 - g, 0.82 + g, 0.82 + g), col);
+    for (const d of dirs) poly(ctx, armPoly(d, g), col);
   }
   const line = (a: Pt2, b: Pt2, color: string, width: number, dash: number[]) => {
     ctx.strokeStyle = color;
@@ -318,24 +417,41 @@ function drawHighwaySurface(ctx: Ctx, mask: number): void {
     ctx.stroke();
     ctx.setLineDash([]);
   };
-  const ends: [Pt2, Pt2, Pt2][] = [];
-  if (m & 1) ends.push([P(0.5, 0), P(0.34, 0), P(0.66, 0)]);
-  if (m & 2) ends.push([P(1, 0.5), P(1, 0.34), P(1, 0.66)]);
-  if (m & 4) ends.push([P(0.5, 1), P(0.34, 1), P(0.66, 1)]);
-  if (m & 8) ends.push([P(0, 0.5), P(0, 0.34), P(0, 0.66)]);
-  for (const [mid, l1, l2] of ends) {
+  const ends: [number, Pt2, Pt2, Pt2][] = [];
+  if (m & 1) ends.push([1, P(0.5, 0), P(0.34, 0), P(0.66, 0)]);
+  if (m & 2) ends.push([2, P(1, 0.5), P(1, 0.34), P(1, 0.66)]);
+  if (m & 4) ends.push([4, P(0.5, 1), P(0.34, 1), P(0.66, 1)]);
+  if (m & 8) ends.push([8, P(0, 0.5), P(0, 0.34), P(0, 0.66)]);
+  for (const [d, mid, l1, l2] of ends) {
+    // the lanes merge on a narrowing arm: road marking only
+    if (roadArms & d) { line(at(d, start, 0.5), mid, '#d8c25a', 1.2, [3, 3]); continue; }
     line(P(0.5, 0.5), mid, '#d0d0d0', 1.5, []);
     line(P(0.34, 0.34), l1, 'rgba(255,255,255,0.7)', 1, [3, 4]);
     line(P(0.66, 0.66), l2, 'rgba(255,255,255,0.7)', 1, [3, 4]);
   }
+  // who yields: roads joining a highway that runs through or bends; the highway itself when it ends at a road running through
+  const hwArms = m & ~roadArms;
+  const opp = (d: number) => (d === 1 ? 4 : d === 4 ? 1 : d === 2 ? 8 : 2);
+  const through = (bits: number) => ((bits & 5) === 5 || (bits & 10) === 10);
+  let stops = 0;
+  if (!hwArms || straight) stops = 0;
+  else if (through(hwArms) || (hwArms & (hwArms - 1))) stops = roadArms;
+  else if (roadArms & opp(hwArms)) stops = roadArms & ~opp(hwArms);
+  else if (through(roadArms)) stops = hwArms;
+  for (const d of dirs) {
+    if (!(stops & d)) continue;
+    const half = roadArms & d ? 0.3 : HW;
+    stopLine(ctx, d, 0.2, half);
+    stopSign(ctx, d, 0.1, 0.5 + inboundSide(d) * (half + 0.1));
+  }
 }
 
-function drawHighway(ctx: Ctx, mask: number): void {
+function drawHighway(ctx: Ctx, mask: number, roadArms = 0): void {
   drawGrass(ctx, mask % GRASS.length);
-  drawHighwaySurface(ctx, mask);
+  drawHighwaySurface(ctx, mask, roadArms);
 }
 
-function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0): void {
+function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0, roadArms = 0): void {
   const saved = SLOPE;
   const deck = bridgeSlope(ramp);
   SLOPE = [0, 0, 0, 0];
@@ -348,13 +464,76 @@ function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0): void {
     pier.render();
   }
   SLOPE = deck;
-  drawHighwaySurface(ctx, mask);
+  drawHighwaySurface(ctx, mask, roadArms);
   SLOPE = saved;
 }
 
 /** Transparent overlay: sleepers and two rails toward each connected edge. */
-function drawRail(ctx: Ctx, mask: number): void {
+/**
+ * Track overlay. `extra` = 'x' on a level crossing with a road, 'X' with a highway (signs, barriers, lamps), 'r<bits>' on a ramp
+ * climbing to a deck over a highway (bits = sides that stay on the ground, as for bridges).
+ */
+function drawRail(ctx: Ctx, mask: number, extra?: string): void {
   const m = mask === 0 ? 10 : mask;
+  const straight = m === 5 || m === 10;
+  if (extra && extra[0] === 'r' && straight) {
+    const lift = bridgeSlope(parseInt(extra.slice(1), 10));
+    drawEmbankment(ctx, m, lift);
+    const saved = SLOPE;
+    SLOPE = [saved[0] + lift[0], saved[1] + lift[1], saved[2] + lift[2], saved[3] + lift[3]];
+    drawTrack(ctx, m);
+    SLOPE = saved;
+    return;
+  }
+  drawTrack(ctx, m);
+  if ((extra === 'x' || extra === 'X') && straight) drawCrossingGear(ctx, m, extra === 'X');
+}
+
+/** Earth bed under a track that leaves the ground: the long face toward the viewer, the far end, the top. */
+function drawEmbankment(ctx: Ctx, m: number, lift: Corners): void {
+  const W = 0.24;
+  // (u, v) at distance a along the track, offset b across it
+  const at = (a: number, b: number): [number, number] => (m === 5 ? [0.5 + b, a] : [a, 0.5 + b]);
+  const G = (a: number, b: number) => P(...at(a, b));
+  const Q = (a: number, b: number) => { const [u, v] = at(a, b); return P(u, v, groundHeight(u, v, lift)); };
+  const plusU = '#5f5a50', plusV = '#736d61';
+  poly(ctx, [G(0, W), G(1, W), Q(1, W), Q(0, W)], m === 5 ? plusU : plusV);
+  poly(ctx, [G(1, -W), G(1, W), Q(1, W), Q(1, -W)], m === 5 ? plusV : plusU);
+  poly(ctx, [Q(0, -W), Q(0, W), Q(1, W), Q(1, -W)], '#8d867a');
+}
+
+/** Signs, barriers and stop lines on both approaches of a level crossing; `wide` for a highway. */
+function drawCrossingGear(ctx: Ctx, m: number, wide: boolean): void {
+  const half = wide ? 0.32 : 0.2;
+  for (const d of m === 5 ? [8, 2] : [1, 4]) {
+    const s = inboundSide(d);
+    stopLine(ctx, d, 0.2, half);
+    crossingSign(ctx, d, 0.14, 0.5 + s * (half + 0.12), 0.5 + s * (half + 0.05));
+  }
+}
+
+/** Track crossing a highway on a deck: piers either side of the carriageway, slab, rails. The highway is the tile's ground sprite. */
+function drawRailDeck(ctx: Ctx, m: number): void {
+  const DECK = 1.5 * HSTEP, SLAB = 2.5;
+  const s = new Scene(ctx, 0);
+  const pier = (u0: number, v0: number, u1: number, v1: number) => s.box(u0, v0, u1, v1, DECK - SLAB, '#6b6f75', '#8a8f96');
+  if (m === 5) {
+    pier(0.3, 0.02, 0.7, 0.14);
+    pier(0.3, 0.86, 0.7, 0.98);
+    s.box(0.26, 0, 0.74, 1, SLAB, '#7d776c', '#8d867a', { z0: DECK - SLAB, key: 50 });
+  } else {
+    pier(0.02, 0.3, 0.14, 0.7);
+    pier(0.86, 0.3, 0.98, 0.7);
+    s.box(0, 0.26, 1, 0.74, SLAB, '#7d776c', '#8d867a', { z0: DECK - SLAB, key: 50 });
+  }
+  s.render();
+  const saved = SLOPE;
+  SLOPE = [saved[0] + 1.5, saved[1] + 1.5, saved[2] + 1.5, saved[3] + 1.5];
+  drawTrack(ctx, m);
+  SLOPE = saved;
+}
+
+function drawTrack(ctx: Ctx, m: number): void {
   const dirs: [number, number][] = [];
   if (m & 1) dirs.push([0, -0.5]);
   if (m & 2) dirs.push([0.5, 0]);
@@ -2490,9 +2669,10 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'tree': SLOPE = parseSlope(parts[1]); return drawTrees(ctx, num(2));
     case 'road': SLOPE = parseSlope(parts[2]); return drawRoad(ctx, num(1));
     case 'bridge': return drawBridge(ctx, num(1), parts[2] ? num(2) : 0);
-    case 'hwy': SLOPE = parseSlope(parts[2]); return drawHighway(ctx, num(1));
-    case 'hwybridge': return drawHighwayBridge(ctx, num(1), parts[2] ? num(2) : 0);
-    case 'rail': SLOPE = parseSlope(parts[2]); return drawRail(ctx, num(1));
+    case 'hwy': SLOPE = parseSlope(parts[2]); return drawHighway(ctx, num(1), parts[3] ? num(3) : 0);
+    case 'hwybridge': return drawHighwayBridge(ctx, num(1), parts[2] ? num(2) : 0, parts[3] ? num(3) : 0);
+    case 'rail': SLOPE = parseSlope(parts[2]); return drawRail(ctx, num(1), parts[3]);
+    case 'railover': SLOPE = parseSlope(parts[2]); return drawRailDeck(ctx, num(1));
     case 'wire': SLOPE = parseSlope(parts[2]); return drawWire(ctx, num(1));
     case 'zone': return drawEmptyZone(ctx, num(1) as ZoneType);
     case 'rubble': SLOPE = parseSlope(parts[1]); return drawRubble(ctx, num(2));

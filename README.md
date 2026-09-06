@@ -24,7 +24,9 @@ Erwann avec Claude Fable 5.1
   seules sur cinq niveaux de densité, et fusionnent en immeubles 2 × 2 puis
   3 × 3 quand le quartier s'y prête.
 - Réseaux : routes, ponts, lignes haute tension, voie ferrée et gares,
-  autoroutes, dépôts de bus, port, aéroport.
+  autoroutes, dépôts de bus, port, aéroport. Le rail traverse les routes par
+  des passages à niveau et franchit les autoroutes sur un pont, en ligne
+  droite seulement.
 - Énergie (éolien, charbon, gaz, nucléaire), eau, police, pompiers, écoles,
   hôpitaux, parcs, récompenses de maire dont l'arcologie. Les équipements
   lourds se débloquent avec la population : dépôt de bus et grand parc à
@@ -35,7 +37,8 @@ Erwann avec Claude Fable 5.1
   arrêtés municipaux, trois niveaux de difficulté.
 - Catastrophes : incendies qui se propagent, inondations, tornades, séismes.
 - Une ville vivante : voitures, trains, cargo et voiliers, avion, fumées
-  d'usines, éoliennes qui tournent, grues sur les chantiers.
+  d'usines, éoliennes qui tournent, grues sur les chantiers, feux aux
+  carrefours et barrières de passage à niveau.
 - Journal avec courbes, conseils et historique ; cartes de données
   (pollution, trafic, foncier, couverture des services…).
 

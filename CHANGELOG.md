@@ -3,6 +3,27 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.6.3 — 2026-09-06
+
+Ponts ferroviaires, passages à niveau et signalisation.
+
+- La voie ferrée franchit les autoroutes sur un pont : rampes sur remblai de
+  part et d'autre, tablier sur piles, les trains passent au-dessus des
+  voitures. Une autoroute peut aussi être tracée sous une voie existante.
+- Les passages à niveau ont leurs croix de Saint-André et leurs barrières,
+  avec des feux qui clignotent à l'approche d'un train.
+- Feux tricolores à chaque entrée de carrefour, panneaux stop et lignes
+  d'arrêt au sol là où l'on cède le passage : route qui débouche sur une
+  autoroute, autoroute qui se termine sur une route traversante. Panneaux et
+  feux sont placés à droite de la voie qui arrive et tournés vers elle.
+- Les voitures roulent à droite sur tous les axes ; elles roulaient à gauche
+  sur les routes d'un des deux axes.
+- L'autoroute se rétrécit progressivement là où elle continue en route, et
+  les routes qui y débouchent s'évasent au carrefour, au lieu d'un décroché
+  brutal.
+- Quand un tracé en L bute sur un croisement interdit, l'autre L est essayé ;
+  si une case reste exclue, un message l'explique.
+
 ## 0.6.2 — 2026-09-06
 
 Des messages qui se voient.

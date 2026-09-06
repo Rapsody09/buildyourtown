@@ -120,7 +120,7 @@ const D: Record<string, [string, string]> = {
   'tool.query': ['Infos', 'Query'],
   'tool.rail': ['Voie ferrée', 'Railway'],
   'tool.rail.meta': ['25 $ / case · 75 $ sur l\'eau', '$25 / tile · $75 over water'],
-  'tool.rail.desc': ['Glisser pour tracer. Traverse les routes. Sert avec des gares.', 'Drag to lay track. Crosses roads. Needs stations.'],
+  'tool.rail.desc': ['Glisser pour tracer. Traverse les routes à niveau et les autoroutes sur un pont, en ligne droite. Sert avec des gares.', 'Drag to lay track. Crosses roads at grade and highways on a bridge, straight through. Needs stations.'],
   'tool.highway': ['Autoroute', 'Highway'],
   'tool.highway.meta': ['50 $ / case · 250 $ sur l\'eau', '$50 / tile · $250 over water'],
   'tool.highway.desc': ['Capacité ×4, rapide. Les zones ne s\'y raccordent pas directement.', 'Capacity ×4, fast. Zones do not connect to it directly.'],
@@ -290,6 +290,7 @@ const D: Record<string, [string, string]> = {
   // ---- tool reasons
   'reason.flat': ['Terrain en pente : nivelez d\'abord.', 'Sloped ground: level it first.'],
   'reason.offmap': ['Hors de la carte.', 'Off the map.'],
+  'reason.crossing': ['Rail et route ne se croisent qu\'en ligne droite, hors virages et carrefours.', 'Rail and road only cross straight through, away from bends and junctions.'],
   'reason.occupied': ['Terrain occupé : passez d\'abord le bulldozer.', 'Occupied: bulldoze first.'],
   'reason.shore': ['{name} doit toucher l\'eau.', '{name} must touch water.'],
   'reason.station': ['Une gare doit toucher une voie ferrée et une route.', 'A station must touch a railway and a road.'],
