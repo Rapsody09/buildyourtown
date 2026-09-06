@@ -119,7 +119,7 @@ function planStruct(city: City, tool: Tool & keyof typeof STRUCTS, at: Pt): Tool
 /**
  * A railway may cross a road or a highway (and they may cross a railway) only at a level
  * crossing: the existing way runs straight through the tile and the new one goes straight
- * across it. No track laid along a street, no crossing on a bend or a junction.
+ * across it. No track laid along a street, no crossing on a bend, a junction or a bridge.
  */
 function crossingOk(city: City, tool: 'rail' | 'road' | 'highway', path: Pt[], k: number): boolean {
   const p = path[k];
@@ -127,6 +127,8 @@ function crossingOk(city: City, tool: 'rail' | 'road' | 'highway', path: Pt[], k
   const onRoad = tool === 'rail' && city.isRoadway(p.x, p.y);
   const onRail = tool !== 'rail' && city.rail[i] === 1;
   if (!onRoad && !onRail) return true;
+  // never on a bridge
+  if (city.terrain[i] === Terrain.Water) return false;
   const isRoad = (x: number, y: number) => city.isRoadway(x, y);
   const isRail = (x: number, y: number) => city.inBounds(x, y) && city.rail[city.idx(x, y)] === 1;
   const way = onRoad ? isRoad : isRail;

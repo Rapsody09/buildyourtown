@@ -223,6 +223,11 @@ export class Renderer {
               if (animate) { this.drawCars(city, x, y, i, px, py, scale, c, time); carsDrawn = true; }
               ctx.drawImage(this.sprites.get(`railover:${m}:${pat}`, scale), px - ax, py - ay);
               lift = [1.5, 1.5, 1.5, 1.5];
+            } else if (terrain[i] === Terrain.Water) {
+              // over water the track rides its own trestle, or the deck of a road bridge
+              const rb = ov === Overlay.None ? this.railBridgeRamp(city, x, y) : this.rampMask(city, x, y);
+              ctx.drawImage(this.sprites.get(ov === Overlay.None ? `railbridge:${m}:${rb}` : `rail:${m}:${pat}:b${rb}`, scale), px - ax, py - ay);
+              lift = bridgeSlope(rb);
             } else {
               const ramp = ov === Overlay.Road ? -1 : this.railRamp(city, x, y, m);
               const crossing = ov === Overlay.Road ? ':x' : ov === Overlay.Highway ? ':X' : '';
@@ -310,12 +315,15 @@ export class Renderer {
     if (fx.length === 0) return;
     const { ctx } = this;
     const base = city.base(x0, y0);
+    const cc = city.corners(x0, y0);
+    const rel: Corners = [cc[0] - base, cc[1] - base, cc[2] - base, cc[3] - base];
     const seed = hash2(x0, y0, 5) >>> 0;
     for (let k = 0; k < fx.length; k++) {
       const e = fx[k];
       const X = x0 + e.u, Y = y0 + e.v;
       const sx = ox + (X - Y) * hw;
-      const sy = oy + (X + Y) * hh - base * hs - e.z * scale;
+      // on a slope, sit on the ground under the spot itself
+      const sy = oy + (X + Y) * hh - base * hs - (e.u <= 1 && e.v <= 1 ? groundHeight(e.u, e.v, rel) : 0) * scale - e.z * scale;
       if (e.kind === 'smoke') {
         if (!active) continue;
         for (let p = 0; p < 3; p++) {
@@ -809,6 +817,12 @@ export class Renderer {
   private rampMask(city: City, x: number, y: number): number {
     const land = (xx: number, yy: number) => city.inBounds(xx, yy) && city.isRoadway(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
     return (land(x, y - 1) ? 1 : 0) | (land(x + 1, y) ? 2 : 0) | (land(x, y + 1) ? 4 : 0) | (land(x - 1, y) ? 8 : 0);
+  }
+
+  /** sides of a water rail tile that lead back to track on land: the trestle comes down to the shore there */
+  private railBridgeRamp(city: City, x: number, y: number): number {
+    const shore = (xx: number, yy: number) => city.hasRail(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
+    return (shore(x, y - 1) ? 1 : 0) | (shore(x + 1, y) ? 2 : 0) | (shore(x, y + 1) ? 4 : 0) | (shore(x - 1, y) ? 8 : 0);
   }
 
   private railMask(city: City, x: number, y: number): number {

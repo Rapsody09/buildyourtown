@@ -470,12 +470,20 @@ function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0, roadArms = 0): void
 
 /** Transparent overlay: sleepers and two rails toward each connected edge. */
 /**
- * Track overlay. `extra` = 'x' on a level crossing with a road, 'X' with a highway (signs, barriers, lamps), 'r<bits>' on a ramp
+ * Track overlay. `extra` = 'x' on a level crossing with a road, 'X' with a highway (signs, barriers, lamps), 'b<bits>' on the
+ * deck of a road bridge (lifted only), 'r<bits>' on a ramp
  * climbing to a deck over a highway (bits = sides that stay on the ground, as for bridges).
  */
 function drawRail(ctx: Ctx, mask: number, extra?: string): void {
   const m = mask === 0 ? 10 : mask;
   const straight = m === 5 || m === 10;
+  if (extra && extra[0] === 'b') {
+    const saved = SLOPE;
+    SLOPE = bridgeSlope(parseInt(extra.slice(1), 10));
+    drawTrack(ctx, m);
+    SLOPE = saved;
+    return;
+  }
   if (extra && extra[0] === 'r' && straight) {
     const lift = bridgeSlope(parseInt(extra.slice(1), 10));
     drawEmbankment(ctx, m, lift);
@@ -487,6 +495,39 @@ function drawRail(ctx: Ctx, mask: number, extra?: string): void {
   }
   drawTrack(ctx, m);
   if ((extra === 'x' || extra === 'X') && straight) drawCrossingGear(ctx, m, extra === 'X');
+}
+
+/** Track over open water: a trestle deck on a pier, coming down to the shore on the sides in `ramp` (as for road bridges). */
+function drawRailBridge(ctx: Ctx, m: number, ramp: number): void {
+  const saved = SLOPE;
+  SLOPE = [0, 0, 0, 0];
+  const deck = bridgeSlope(ramp);
+  const ph = pierHeight(deck);
+  if (ph > 0) {
+    const s = new Scene(ctx, 0);
+    s.box(0.4, 0.4, 0.6, 0.6, ph, '#6b6f75', '#8a8f96');
+    s.render();
+  }
+  const W = 0.24, T = 2.5, top = '#8d867a', plusU = '#524c44', plusV = '#655e54';
+  const Q = (u: number, v: number, dz = 0): Pt2 => P(u, v, groundHeight(u, v, deck) + dz);
+  if (m === 5 || m === 10) {
+    const at = (a: number, b: number): [number, number] => (m === 5 ? [0.5 + b, a] : [a, 0.5 + b]);
+    const R = (a: number, b: number, dz = 0) => Q(...at(a, b), dz);
+    poly(ctx, [R(0, W, -T), R(1, W, -T), R(1, W), R(0, W)], m === 5 ? plusU : plusV);
+    poly(ctx, [R(1, -W, -T), R(1, W, -T), R(1, W), R(1, -W)], m === 5 ? plusV : plusU);
+    poly(ctx, [R(0, -W), R(0, W), R(1, W), R(1, -W)], top);
+  } else {
+    // a bend or a junction over the water: the deck's top, arm by arm around a central pad
+    const mm = m === 0 ? 10 : m;
+    poly(ctx, [Q(0.5 - W, 0.5 - W), Q(0.5 + W, 0.5 - W), Q(0.5 + W, 0.5 + W), Q(0.5 - W, 0.5 + W)], top);
+    if (mm & 1) poly(ctx, [Q(0.5 - W, 0), Q(0.5 + W, 0), Q(0.5 + W, 0.5), Q(0.5 - W, 0.5)], top);
+    if (mm & 2) poly(ctx, [Q(0.5, 0.5 - W), Q(1, 0.5 - W), Q(1, 0.5 + W), Q(0.5, 0.5 + W)], top);
+    if (mm & 4) poly(ctx, [Q(0.5 - W, 0.5), Q(0.5 + W, 0.5), Q(0.5 + W, 1), Q(0.5 - W, 1)], top);
+    if (mm & 8) poly(ctx, [Q(0, 0.5 - W), Q(0.5, 0.5 - W), Q(0.5, 0.5 + W), Q(0, 0.5 + W)], top);
+  }
+  SLOPE = deck;
+  drawTrack(ctx, m);
+  SLOPE = saved;
 }
 
 /** Earth bed under a track that leaves the ground: the long face toward the viewer, the far end, the top. */
@@ -2673,6 +2714,7 @@ function drawByKey(ctx: Ctx, key: string): void {
     case 'hwybridge': return drawHighwayBridge(ctx, num(1), parts[2] ? num(2) : 0, parts[3] ? num(3) : 0);
     case 'rail': SLOPE = parseSlope(parts[2]); return drawRail(ctx, num(1), parts[3]);
     case 'railover': SLOPE = parseSlope(parts[2]); return drawRailDeck(ctx, num(1));
+    case 'railbridge': return drawRailBridge(ctx, num(1), num(2));
     case 'wire': SLOPE = parseSlope(parts[2]); return drawWire(ctx, num(1));
     case 'zone': return drawEmptyZone(ctx, num(1) as ZoneType);
     case 'rubble': SLOPE = parseSlope(parts[1]); return drawRubble(ctx, num(2));

@@ -290,7 +290,7 @@ const D: Record<string, [string, string]> = {
   // ---- tool reasons
   'reason.flat': ['Terrain en pente : nivelez d\'abord.', 'Sloped ground: level it first.'],
   'reason.offmap': ['Hors de la carte.', 'Off the map.'],
-  'reason.crossing': ['Rail et route ne se croisent qu\'en ligne droite, hors virages et carrefours.', 'Rail and road only cross straight through, away from bends and junctions.'],
+  'reason.crossing': ['Rail et route ne se croisent qu\'en ligne droite, hors virages et carrefours, et jamais sur un pont.', 'Rail and road only cross straight through, away from bends and junctions, and never on a bridge.'],
   'reason.occupied': ['Terrain occupé : passez d\'abord le bulldozer.', 'Occupied: bulldoze first.'],
   'reason.shore': ['{name} doit toucher l\'eau.', '{name} must touch water.'],
   'reason.station': ['Une gare doit toucher une voie ferrée et une route.', 'A station must touch a railway and a road.'],

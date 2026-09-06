@@ -25,8 +25,9 @@ Erwann avec Claude Fable 5.1
   3 × 3 quand le quartier s'y prête.
 - Réseaux : routes, ponts, lignes haute tension, voie ferrée et gares,
   autoroutes, dépôts de bus, port, aéroport. Le rail traverse les routes par
-  des passages à niveau et franchit les autoroutes sur un pont, en ligne
-  droite seulement.
+  des passages à niveau, franchit les autoroutes sur un pont, en ligne
+  droite seulement, et l'eau sur des chevalets ; aucun croisement sur un
+  pont.
 - Énergie (éolien, charbon, gaz, nucléaire), eau, police, pompiers, écoles,
   hôpitaux, parcs, récompenses de maire dont l'arcologie. Les équipements
   lourds se débloquent avec la population : dépôt de bus et grand parc à

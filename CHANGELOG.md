@@ -3,6 +3,19 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.6.4 — 2026-09-06
+
+Des ponts pour les trains.
+
+- Sur l'eau, la voie ferrée repose désormais sur un pont à chevalets, avec
+  ses rampes aux rives et ses piles, virages et embranchements compris ; elle
+  était posée à même l'eau. Quand elle croise un pont routier, elle passe sur
+  son tablier.
+- Rail et route ne se croisent plus sur un pont : ça n'existe pas, et il
+  faudra choisir où franchir l'eau. Le message de refus le dit.
+- Les feux et lampes des panneaux suivent le relief au lieu de flotter sur
+  les cases en pente.
+
 ## 0.6.3 — 2026-09-06
 
 Ponts ferroviaires, passages à niveau et signalisation.
