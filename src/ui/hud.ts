@@ -13,7 +13,8 @@ import type { SaveEntry } from '../save';
 import { renderPreview } from './preview';
 
 export interface HudHandlers {
-  onTool(tool: Tool): void;
+  /** `toggle` false selects without flipping back to the magnifier when the tool is already active */
+  onTool(tool: Tool, toggle?: boolean): void;
   onSpeed(speed: number): void;
   onTax(rate: number): void;
   onFunding(dept: Dept, pct: number): void;
@@ -274,7 +275,7 @@ export class Hud {
             return;
           }
           const first = entry.items.find((it) => !this.handlers.lockReason(it.tool)) ?? entry.items[0];
-          this.handlers.onTool(first.tool);
+          this.handlers.onTool(first.tool, false);
           if (this.openFlyout !== entry.group) this.toggleFlyout(entry.group, btn, entry.items);
         });
         this.tooltip(btn, () => {
@@ -337,7 +338,7 @@ export class Hud {
           btn.disabled = true;
           btn.querySelector('.txt')!.append(h('span', { class: 'lock', text: lock }));
         }
-        btn.addEventListener('click', () => { this.handlers.onTool(item.tool); this.closeFlyout(); });
+        btn.addEventListener('click', () => { this.handlers.onTool(item.tool, false); this.closeFlyout(); });
         return btn;
       }),
     );

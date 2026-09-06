@@ -3,6 +3,13 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.6.1 — 2026-09-06
+
+Correctif.
+
+- Choisir un outil dans un sous-menu (Route dans Transport, par exemple) juste
+  après avoir ouvert le groupe ramenait à la loupe au lieu de le sélectionner.
+
 ## 0.6.0 — 2026-09-06
 
 Une progression, des bâtiments plus soignés et des retours de la version mobile.

@@ -67,7 +67,7 @@ let touchPending: Pt | null = null;
 let holdPlacing = false;
 
 const hud = new Hud({
-  onTool: setTool,
+  onTool: (tl, toggle = true) => setTool(tl, toggle),
   onSpeed: setSpeed,
   onTax: (rate) => { city.taxRate = rate; unsaved = true; },
   onFunding: (dept, pct) => { city.funding[dept] = pct; unsaved = true; },
@@ -125,8 +125,9 @@ function triggerDisaster(kind: DisasterKind): void {
   dirty = true;
 }
 
-function setTool(tl: Tool): void {
-  tool = tool === tl ? NEUTRAL_TOOL : tl;
+/** picks a tool; picking the active one again goes back to the magnifier unless `toggle` is false */
+function setTool(tl: Tool, toggle = true): void {
+  tool = toggle && tool === tl ? NEUTRAL_TOOL : tl;
   touchPending = null;
   hud.setTool(tool);
   plan = null;
@@ -478,6 +479,8 @@ function boot(): void {
 }
 
 boot();
+
+
 
 
 
