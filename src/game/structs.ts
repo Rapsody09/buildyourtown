@@ -25,13 +25,16 @@ export interface StructDef {
   jobs?: number;
   /** must touch a water tile */
   needsShore?: boolean;
+  /** may also stand on water, offshore: then it yields half as much again */
+  onWater?: boolean;
 }
 
 export const STRUCTS: Record<StructType, StructDef> = {
-  wind: { size: 1, cost: 300, upkeep: 1, power: 8, category: 'power' },
+  wind: { size: 1, cost: 300, upkeep: 1, power: 8, category: 'power', onWater: true },
   coal: { size: 3, cost: 3000, upkeep: 15, power: 400, pollution: 60, pollutionRadius: 6, category: 'power' },
   gas: { size: 3, cost: 4500, upkeep: 15, power: 300, pollution: 25, pollutionRadius: 5, category: 'power' , unlockPop: 2500},
   nuclear: { size: 4, cost: 15000, upkeep: 50, power: 1500, category: 'power' , unlockPop: 20000},
+  fusion: { size: 4, cost: 60000, upkeep: 150, power: 6000, category: 'power', unlockPop: 100000 },
   pump: { size: 1, cost: 300, upkeep: 2, radius: 10, consumes: 1, category: 'water', needsShore: true },
   tower: { size: 2, cost: 600, upkeep: 3, radius: 7, consumes: 2, category: 'water' },
   police: { size: 2, cost: 500, upkeep: 10, radius: 10, consumes: 1, dept: 'police', category: 'service' },

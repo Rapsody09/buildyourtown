@@ -1,7 +1,7 @@
 import type { City, Corners } from '../game/city';
 import { hash2 } from '../game/rng';
 import { STRUCTS } from '../game/structs';
-import { HIGHWAY_CAPACITY, MAX_ELEV, NO_ROAD, Overlay, ROAD_CAPACITY, Terrain, isZone, type DataMap } from '../game/types';
+import { HIGHWAY_CAPACITY, MAX_ELEV, NO_ROAD, Overlay, ROAD_CAPACITY, Terrain, ZONE_COLOR, isZone, type DataMap, type ZoneType } from '../game/types';
 import type { Pt } from '../game/tools';
 import { CAR_COLORS, HSTEP, MAX_H, SpriteCache, TILE_H, TILE_W, bridgeSlope, groundHeight, type VehicleKind } from './sprites';
 import type { Struct } from '../game/structs';
@@ -55,6 +55,8 @@ export class Renderer {
 
   readonly ctx: CanvasRenderingContext2D;
   camera: Camera = { x: 0, y: 0, zoom: 0.5 };
+  /** flat view: buildings and facilities drawn as footprints on the ground, so nothing hides the tiles behind */
+  flat = false;
   dataMap: DataMap = 'none';
   /** used by screenToTile when no city is passed explicitly */
   city: City | null = null;
@@ -182,15 +184,18 @@ export class Renderer {
           const n = STRUCTS[s.type].size;
           // wind turbines turn: six rotor frames, each machine out of step with its neighbours
           let key = `st:${s.type}`;
-          if (s.type === 'wind' && animate) key = `st:wind:${(Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6}`;
+          if (s.type === 'wind') key = `st:wind:${animate ? (Math.floor(time / 90) + (hash2(s.x, s.y, 7) >>> 0)) % 6 : 0}:${terrain[i] === Terrain.Water ? 1 : 0}`;
           else if (s.type === 'station' && this.stationAlongY(city, s.x, s.y, n)) key = 'st:station:1';
           else if (s.type === 'port') key = `st:port:${this.portSide(city, s.x, s.y, n)}`;
           else if (s.type === 'park') {
             const variant = hash2(s.x, s.y, 11) & 3;
             key = `park:${this.parkMask(city, s.x, s.y)}:${variant}:${variant === 2 && animate ? Math.floor(time / 260) % 3 : 0}`;
           } else if (s.type === 'bigpark') key = `st:bigpark:${animate ? Math.floor(time / 260) % 3 : 0}:${hash2(s.x, s.y, 13) & 3}:${this.bigParkMask(city, s.x, s.y)}`;
-          ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
-          if (animate && x === s.x && y === s.y) this.drawEffects(city, key, s.x, s.y, ox, oy, hw, hh, hs, scale, time, true);
+          if (this.flat) this.footprint(px, py, hw, hh, '#8d97a8', 0);
+          else {
+            ctx.drawImage(this.sprites.getColumn(key, scale, n, x - s.x, y - s.y), px - ax, py - ay);
+            if (animate && x === s.x && y === s.y) this.drawEffects(city, key, s.x, s.y, ox, oy, hw, hh, hs, scale, time, true);
+          }
           if (showMarkers && x === s.x && y === s.y && STRUCTS[s.type].consumes && !powered[i]) {
             this.marker(px, py + hh, scale, 'bolt');
           }
@@ -199,7 +204,9 @@ export class Renderer {
         }
 
         const b = city.bldId[i] ? city.buildings.get(city.bldId[i]) : undefined;
-        if (b) {
+        if (b && this.flat) {
+          this.footprint(px, py, hw, hh, ZONE_COLOR[b.zone], level[i]);
+        } else if (b) {
           const key = `big:${b.zone}:${b.size}:${level[i]}:${hash2(b.x, b.y, 9) & 3}`;
           ctx.drawImage(this.sprites.getColumn(key, scale, b.size, x - b.x, y - b.y), px - ax, py - ay);
           if (animate && x === b.x && y === b.y) {
@@ -208,9 +215,10 @@ export class Renderer {
           }
         } else {
           const pat = `${c[0] - base}${c[1] - base}${c[2] - base}${c[3] - base}`;
-          const key = this.spriteKey(city, x, y, terrain[i], ov, level[i], pat, waterFrame);
-          ctx.drawImage(this.sprites.get(key, scale), px - ax, py - ay);
-          if (animate && isZone(ov) && level[i] > 0) {
+          const key = this.spriteKey(city, x, y, terrain[i], ov, level[i], pat, waterFrame, Math.min(4, Math.floor((c[0] + c[1] + c[2] + c[3]) / 6.4)));
+          if (this.flat && isZone(ov) && level[i] > 0) this.footprint(px, py, hw, hh, ZONE_COLOR[ov as ZoneType], level[i]);
+          else ctx.drawImage(this.sprites.get(key, scale), px - ax, py - ay);
+          if (animate && !this.flat && isZone(ov) && level[i] > 0) {
             this.drawEffects(city, key, x, y, ox, oy, hw, hh, hs, scale, time, powered[i] === 1);
             this.drawCraneAt(city, i, px, py, ax, ay, scale, time);
           }
@@ -379,7 +387,7 @@ export class Renderer {
   private walkable(city: City, kind: Walker['kind'], x: number, y: number): boolean {
     if (!city.inBounds(x, y)) return false;
     const i = city.idx(x, y);
-    return kind === 'train' ? city.rail[i] === 1 : city.terrain[i] === Terrain.Water;
+    return kind === 'train' ? city.rail[i] === 1 : city.terrain[i] === Terrain.Water && city.overlay[i] !== Overlay.Struct;
   }
 
   /** Steps every roaming vehicle and sorts their cars by tile for the drawing pass. */
@@ -784,6 +792,21 @@ export class Renderer {
     }
   }
 
+  /** flat view: a tile of a building's footprint, darker with density, outlined */
+  private footprint(px: number, py: number, hw: number, hh: number, color: string, level: number): void {
+    const { ctx } = this;
+    this.diamondPath(px, py, hw, hh);
+    ctx.fillStyle = color;
+    ctx.fill();
+    if (level > 1) {
+      ctx.fillStyle = `rgba(0,0,0,${(0.09 * (level - 1)).toFixed(2)})`;
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
   private diamondPath(px: number, py: number, hw: number, hh: number): void {
     const { ctx } = this;
     ctx.beginPath();
@@ -794,18 +817,20 @@ export class Renderer {
     ctx.closePath();
   }
 
-  private spriteKey(city: City, x: number, y: number, terrain: number, overlay: Overlay, level: number, pat: string, waterFrame: number): string {
+  private spriteKey(city: City, x: number, y: number, terrain: number, overlay: Overlay, level: number, pat: string, waterFrame: number, alt: number): string {
     const h = hash2(x, y, 7);
     if (terrain === Terrain.Water) {
       if (overlay === Overlay.Road) return `bridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}`;
       if (overlay === Overlay.Highway) return `hwybridge:${this.roadMask(city, x, y)}:${this.rampMask(city, x, y)}:${this.roadArms(city, x, y)}`;
-      return `water:${h & 1}:${waterFrame}`;
+      const shore = this.shoreMask(city, x, y);
+      return `water:${shore}:${shore ? 1 : Math.min(3, city.shoreDist[city.idx(x, y)])}:${h & 1}:${waterFrame}`;
     }
     switch (overlay) {
-      case Overlay.None: return `grass:${pat}:${h & 3}`;
-      case Overlay.Tree: return `tree:${pat}:${h & 3}`;
-      case Overlay.Road: return `road:${this.roadMask(city, x, y)}:${pat}`;
-      case Overlay.Highway: return `hwy:${this.roadMask(city, x, y)}:${pat}:${this.roadArms(city, x, y)}`;
+      case Overlay.None: return `grass:${pat}:${h & 3}:${alt}`;
+      // woods share a species by clumps of four by four tiles
+      case Overlay.Tree: return `tree:${pat}:${h & 3}:${alt}:${(hash2(x >> 2, y >> 2, 17) >>> 0) % 3}`;
+      case Overlay.Road: return `road:${this.roadMask(city, x, y)}:${pat}:${alt}`;
+      case Overlay.Highway: return `hwy:${this.roadMask(city, x, y)}:${pat}:${this.roadArms(city, x, y)}:${alt}`;
       case Overlay.Rubble: return `rubble:${pat}:${h & 3}`;
       default:
         if (level === 0) return `zone:${overlay}`;
@@ -817,6 +842,18 @@ export class Renderer {
   private rampMask(city: City, x: number, y: number): number {
     const land = (xx: number, yy: number) => city.inBounds(xx, yy) && city.isRoadway(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
     return (land(x, y - 1) ? 1 : 0) | (land(x + 1, y) ? 2 : 0) | (land(x, y + 1) ? 4 : 0) | (land(x - 1, y) ? 8 : 0);
+  }
+
+  /** land around a water tile: N=1 E=2 S=4 W=8, NE=16 SE=32 SW=64 NW=128; a diagonal counts only when both sides next to it are water */
+  private shoreMask(city: City, x: number, y: number): number {
+    const land = (xx: number, yy: number) => city.inBounds(xx, yy) && city.terrain[city.idx(xx, yy)] === Terrain.Land;
+    const n = land(x, y - 1), e = land(x + 1, y), s = land(x, y + 1), w = land(x - 1, y);
+    let m = (n ? 1 : 0) | (e ? 2 : 0) | (s ? 4 : 0) | (w ? 8 : 0);
+    if (!n && !e && land(x + 1, y - 1)) m |= 16;
+    if (!e && !s && land(x + 1, y + 1)) m |= 32;
+    if (!s && !w && land(x - 1, y + 1)) m |= 64;
+    if (!w && !n && land(x - 1, y - 1)) m |= 128;
+    return m;
   }
 
   /** sides of a water rail tile that lead back to track on land: the trestle comes down to the shore there */

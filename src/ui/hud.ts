@@ -4,7 +4,7 @@ import { advice } from '../game/sim';
 import { STRUCTS, isStructTool, structDesc, structName } from '../game/structs';
 import {
   BANKRUPT_MONTHS, BOND_AMOUNT, DATA_MAPS, DEPTS, DIFFICULTIES, ORDINANCES, ORDINANCE_KEYS,
-  Overlay, Terrain, type DataMap, type Dept, type Difficulty, type Ordinance, type StructType, type Tool,
+  MAP_KINDS, Overlay, Terrain, type DataMap, type Dept, type Difficulty, type MapKind, type Ordinance, type StructType, type Tool,
 } from '../game/types';
 import { fmtCompact, fmtInt, fmtMoney, fmtParams, lang, months, t, type Lang } from '../i18n';
 import { renderIcon } from '../render/sprites';
@@ -21,13 +21,16 @@ export interface HudHandlers {
   onBond(issue: boolean): void;
   onDataMap(map: DataMap): void;
   /** seed null = random map */
-  onNewCity(name: string, difficulty: Difficulty, seed: number | null): void;
+  /** `seed` and `kind` null: surprise me */
+  onNewCity(name: string, difficulty: Difficulty, seed: number | null, kind: MapKind | null): void;
   onLoadCity(key: string): void;
   onDeleteCity(key: string): void;
   onOrdinance(key: Ordinance, enabled: boolean): void;
   onLang(lang: Lang): void;
   /** the player tapped the minimap: look there */
   onMinimap(x: number, y: number): void;
+  /** toggles the flat view */
+  onFlat(): void;
   /** bankruptcy screen: go back to the rescue snapshot taken before the crisis */
   onRescue(): void;
   /** why a tool cannot be used right now (locked reward), or null */
@@ -86,7 +89,7 @@ function toolbarEntries(): ToolbarEntry[] {
     {
       group: t('group.energy'), icon: structIcon('wind', ZOOM_BAR), items: [
         { tool: 'wire', name: `${t('tool.wire')} (L)`, meta: t('perTile', { n: 5 }), desc: t('tool.wire.desc'), icon: tileIcon(['grass:0000:0', 'wire:10:0000']) },
-        ...structItems(['wind', 'coal', 'gas', 'nuclear']),
+        ...structItems(['wind', 'coal', 'gas', 'nuclear', 'fusion']),
       ],
     },
     { group: t('group.water'), icon: structIcon('tower', ZOOM_BAR), items: structItems(['pump', 'tower']) },
@@ -192,8 +195,7 @@ export class Hud {
 
   // welcome screen state
   private welcomeDifficulty: Difficulty = 'facile';
-  private welcomeSeed: number | null = null;
-  private welcomeSeeds: number[] = [];
+  private welcomePick: { seed: number; kind: MapKind } | null = null;
 
   constructor(private handlers: HudHandlers) {
     translateStatic();
@@ -224,6 +226,7 @@ export class Hud {
     $('date-mobile').addEventListener('click', toggleSpeed);
     for (const b of this.speedButtons) b.addEventListener('click', () => speedBox.classList.remove('show'));
     // data maps are one tap away from the minimap
+    $('minimap-flat').addEventListener('click', (e) => { e.stopPropagation(); this.handlers.onFlat(); });
     $('minimap-maps').addEventListener('click', (e) => {
       e.stopPropagation();
       const menu = $('maps-menu');
@@ -527,28 +530,29 @@ export class Hud {
       e.preventDefault();
       const name = ($<HTMLInputElement>('welcome-name').value.trim() || t('welcome.namePh')).slice(0, 40);
       $('welcome').hidden = true;
-      this.handlers.onNewCity(name, this.welcomeDifficulty, this.welcomeSeed);
+      this.handlers.onNewCity(name, this.welcomeDifficulty, this.welcomePick?.seed ?? null, this.welcomePick?.kind ?? null);
     });
     $('welcome-cancel').addEventListener('click', () => { $('welcome').hidden = true; });
   }
 
   private fillGallery(): void {
     const gallery = $('welcome-maps');
-    this.welcomeSeeds = Array.from({ length: 5 }, () => randomSeed());
-    this.welcomeSeed = null;
+    this.welcomePick = null;
     const random = h('button', { type: 'button', class: 'card map selected' }, h('span', { class: 'qmark', text: '?' }), h('span', { text: t('welcome.random') }));
-    const select = (btn: HTMLElement, seed: number | null) => {
-      this.welcomeSeed = seed;
+    const select = (btn: HTMLElement, pick: { seed: number; kind: MapKind } | null) => {
+      this.welcomePick = pick;
       for (const b of gallery.children) b.classList.toggle('selected', b === btn);
     };
     random.addEventListener('click', () => select(random, null));
     gallery.replaceChildren(random);
-    for (const seed of this.welcomeSeeds) {
+    // one card per family, a fresh seed each time
+    for (const kind of MAP_KINDS) {
+      const seed = randomSeed();
       const canvas = h('canvas', { width: '132', height: '78' });
-      const btn = h('button', { type: 'button', class: 'card map' }, canvas);
-      btn.addEventListener('click', () => select(btn, seed));
+      const btn = h('button', { type: 'button', class: 'card map' }, canvas, h('span', { class: 'label', text: t(`mapkind.${kind}`) }));
+      btn.addEventListener('click', () => select(btn, { seed, kind }));
       gallery.append(btn);
-      renderPreview(canvas, seed);
+      renderPreview(canvas, seed, kind);
     }
   }
 
@@ -788,7 +792,7 @@ export class Hud {
           const i = y * n + x;
           let c: [number, number, number];
           const o = city.overlay[i] as Overlay;
-          if (city.terrain[i] === Terrain.Water) c = [52, 120, 200];
+          if (city.terrain[i] === Terrain.Water) c = city.shoreDist[i] >= 2 ? [40, 100, 182] : [52, 120, 200];
           else if (o === Overlay.Road || o === Overlay.Highway) c = [170, 176, 186];
           else if (o === Overlay.Res) c = city.level[i] ? [70, 200, 90] : [50, 140, 70];
           else if (o === Overlay.Com) c = city.level[i] ? [80, 150, 240] : [50, 100, 170];
@@ -950,6 +954,10 @@ export class Hud {
     const next = this.toastQueue.shift();
     if (next) this.showToast(next);
     else $('toast').hidden = true;
+  }
+
+  setFlat(on: boolean): void {
+    $('minimap-flat').classList.toggle('active', on);
   }
 
   setStatus(text: string, transient = false): void {

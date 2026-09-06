@@ -6,7 +6,7 @@ import {
   BANKRUPT_MONTHS, BOND_AMOUNT, COST, DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, MAX_LEVEL, MAX_TRIP, NO_ROAD, ORDINANCES, ORDINANCE_KEYS, Overlay, POP_PER_LEVEL, POWER_USE, ROAD_CAPACITY, ROAD_REACH, START_YEAR, TICKS_PER_MONTH, Terrain, isZone, type ZoneType,
 } from './types';
 
-const MILESTONES = [1000, 2500, 5000, 10000, 25000, 50000, 100000];
+const MILESTONES = [1000, 2500, 5000, 10000, 20000, 25000, 50000, 100000];
 
 /** Growth gets harder as density rises (index = current level). */
 const GROW_FACTOR = [1, 0.8, 0.6, 0.45, 0.3];
@@ -391,7 +391,8 @@ export function recomputePower(city: City): void {
         }
       }
     }
-    supply[c] += def.power;
+    // offshore turbines catch steadier winds
+    supply[c] += def.onWater && city.terrain[origin] === Terrain.Water ? def.power * 1.5 : def.power;
     for (let yy = s.y; yy < s.y + def.size; yy++) {
       for (let xx = s.x; xx < s.x + def.size; xx++) sources.push(city.idx(xx, yy));
     }

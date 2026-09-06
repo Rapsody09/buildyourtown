@@ -9,6 +9,7 @@ const BURN_TICKS = 60;
 const SAVED_BEFORE = 24;
 
 function flammable(city: City, i: number): boolean {
+  if (city.terrain[i] === Terrain.Water) return false;
   const o = city.overlay[i] as Overlay;
   if (o === Overlay.Tree) return true;
   if (isZone(o)) return city.level[i] > 0;
@@ -17,6 +18,21 @@ function flammable(city: City, i: number): boolean {
     return !!st && STRUCTS[st.type].category !== 'water';
   }
   return false;
+}
+
+/** Wrecks everything within four tiles of a failed reactor and starts fires in the debris. */
+function meltdown(city: City, cx: number, cy: number): void {
+  const R = 4;
+  for (let y = cy - R; y <= cy + R; y++) {
+    for (let x = cx - R; x <= cx + R; x++) {
+      if (!city.inBounds(x, y)) continue;
+      const d = Math.hypot(x - cx, y - cy);
+      if (d > R) continue;
+      const i = city.idx(x, y);
+      if (city.overlay[i] !== Overlay.None && city.rng() < 0.95 - 0.1 * d) city.destroyTile(i);
+      if (city.rng() < 0.25) ignite(city, i);
+    }
+  }
 }
 
 export function ignite(city: City, i: number): boolean {
@@ -145,6 +161,17 @@ export function startDisaster(city: City, kind: DisasterKind): string {
     case 'quake': {
       const R = 14;
       let hit = 0;
+      // first, a nuclear plant near the epicentre may fail: its block and the surroundings are wrecked and set ablaze
+      let melted = 0;
+      for (const s of [...city.structs.values()]) {
+        if (s.type !== 'nuclear') continue;
+        const cx = s.x + 2, cy = s.y + 2;
+        const d = Math.hypot(cx - tx, cy - ty);
+        if (d > R || city.rng() > 0.5 * (1 - d / R)) continue;
+        meltdown(city, cx, cy);
+        melted++;
+        city.addLog('log.meltdown', { x: cx, y: cy }, 'disaster');
+      }
       for (let y = ty - R; y <= ty + R; y++) {
         for (let x = tx - R; x <= tx + R; x++) {
           if (!city.inBounds(x, y)) continue;
@@ -162,7 +189,8 @@ export function startDisaster(city: City, kind: DisasterKind): string {
         }
       }
       city.shakeMs = 1500;
-      city.addLog('log.quake', { x: tx, y: ty, n: hit }, 'disaster');
+      // the quake itself is logged first so the meltdown, the bigger news, tops the journal
+      city.log.splice(melted, 0, { year: city.year, month: city.month, kind: 'disaster', key: 'log.quake', params: { x: tx, y: ty, n: hit } });
       break;
     }
   }

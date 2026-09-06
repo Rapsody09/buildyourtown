@@ -189,7 +189,9 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
   cursor: pointer;
 }
 #minimap .head { display: flex; justify-content: space-between; align-items: center; height: 22px; padding: 0 2px 2px 6px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-#minimap .head button { height: 20px; padding: 0 6px; font-size: 13px; line-height: 1; border-radius: 6px; }
+#minimap .head { gap: 4px; }
+#minimap .head button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 20px; padding: 0; font-size: 13px; line-height: 1; border-radius: 6px; }
+#minimap .head button svg { display: block; width: 22px; height: 14px; }
 #minimap canvas { display: block; width: 100%; height: calc(100% - 22px); image-rendering: pixelated; border-radius: 6px; }
 .menu.near-minimap { left: auto; right: 12px; }
 /* figures that open something */
@@ -422,6 +424,7 @@ input[type="text"]:focus { outline: 2px solid var(--accent); border-color: trans
 .cards.maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cards.maps .card { padding: 4px; min-width: 0; justify-content: center; }
 .cards.maps .card canvas { display: block; width: 100%; height: auto; aspect-ratio: 132 / 78; border-radius: 6px; }
+.cards.maps .card .label { display: block; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
 .cards.maps .card .qmark { font-family: var(--font-head); font-weight: 800; font-size: 42px; line-height: 1; color: var(--accent); text-shadow: 0 2px 0 var(--accent-dark); }
 .welcome .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 

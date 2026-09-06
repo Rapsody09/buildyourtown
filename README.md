@@ -18,21 +18,25 @@ Erwann avec Claude Fable 5.1
 
 ## En bref
 
-- Carte isométrique de 128 × 128 cases avec eau, forêts et relief en
-  terrasses ; terraformage à la main.
+- Carte isométrique de 128 × 128 cases, en cinq familles au choix : côte,
+  rivière à méandres, lacs, archipel, montagne. Rives sableuses, eau qui fonce au
+  large, relief en terrasses qui sèche avec l'altitude, forêts en bosquets ;
+  terraformage à la main.
 - Zones résidentielles, commerciales et industrielles qui se développent
   seules sur cinq niveaux de densité, et fusionnent en immeubles 2 × 2 puis
   3 × 3 quand le quartier s'y prête.
 - Réseaux : routes, ponts, lignes haute tension, voie ferrée et gares,
   autoroutes, dépôts de bus, port, aéroport. Le rail traverse les routes par
   des passages à niveau, franchit les autoroutes sur un pont, en ligne
-  droite seulement, et l'eau sur des chevalets ; aucun croisement sur un
-  pont.
-- Énergie (éolien, charbon, gaz, nucléaire), eau, police, pompiers, écoles,
-  hôpitaux, parcs, récompenses de maire dont l'arcologie. Les équipements
-  lourds se débloquent avec la population : dépôt de bus et grand parc à
-  1 000 habitants, hôpital et centrale à gaz à 2 500, rail et gare à 5 000,
-  autoroute et port à 10 000, aéroport et nucléaire à 20 000.
+  droite seulement, et l'eau sur des chevalets ; sur un pont, ni croisement
+  ni embranchement.
+- Énergie (éolien à terre ou en mer, charbon, gaz, nucléaire, fusion), eau,
+  police, pompiers, écoles, hôpitaux, parcs, récompenses de maire dont
+  l'arcologie. Les équipements lourds se débloquent avec la population :
+  dépôt de bus et grand parc à 1 000 habitants, hôpital et centrale à gaz à
+  2 500, rail et gare à 5 000, autoroute et port à 10 000, aéroport et
+  nucléaire à 20 000, fusion à 100 000. Un séisme proche peut faire céder une
+  centrale nucléaire.
 - Simulation mensuelle : demande, valeur foncière, pollution, criminalité,
   trajets domicile-emploi et embouteillages, budget détaillé, emprunts,
   arrêtés municipaux, trois niveaux de difficulté.
@@ -81,6 +85,7 @@ trois cases, du courant, et des emplois ou des habitants à portée de trajet.
 | N | niveler le terrain (glisser un rectangle) |
 | B | bulldozer |
 | Q | informations sur une case |
+| V | vue à plat : immeubles en emprise au sol, pour atteindre une case cachée |
 | P, 1, 2, 3 | pause, vitesses |
 | Échap | aucun outil, fermer les panneaux |
 

@@ -3,7 +3,7 @@ import { STRUCTS, type Struct } from './structs';
 import { generateTerrain } from './terrain';
 import {
   DEFAULT_TAX, DEPTS, DIFFICULTIES, MAP_SIZE, NO_ROAD, ORDINANCE_KEYS, Overlay, START_YEAR, Terrain,
-  isZone, type Dept, type Difficulty, type DifficultyDef, type LogEntry, type Ordinance, type StructType, type ZoneType,
+  isZone, type Dept, type Difficulty, type DifficultyDef, type LogEntry, type MapKind, type Ordinance, type StructType, type ZoneType,
 } from './types';
 
 export interface Demand {
@@ -120,6 +120,8 @@ export class City {
   cover: Record<Dept | 'park', Uint8Array>;
   /** distance to nearest water tile, capped */
   waterDist: Uint8Array;
+  /** steps from land, for water tiles: how deep the water looks (capped at 3) */
+  shoreDist: Uint8Array;
   /** index of the road tile a zone connects to, -1 if none within reach */
   entry: Int32Array;
   /** commuters per month on each roadway tile */
@@ -198,7 +200,8 @@ export class City {
       police: new Uint8Array(n), fire: new Uint8Array(n), education: new Uint8Array(n),
       health: new Uint8Array(n), park: new Uint8Array(n),
     };
-    this.waterDist = computeWaterDist(terrain, this.size, 6);
+    this.waterDist = computeDist(terrain, this.size, 6, Terrain.Water);
+    this.shoreDist = computeDist(terrain, this.size, 3, Terrain.Land);
     this.entry = new Int32Array(n).fill(-1);
     this.traffic = new Uint16Array(n);
     this.access = new Uint8Array(n);
@@ -207,8 +210,8 @@ export class City {
     this.flood = new Uint8Array(n);
   }
 
-  static generate(seed = randomSeed(), name = 'Ville', difficulty: Difficulty = 'facile'): City {
-    const { terrain, overlay, elev } = generateTerrain(MAP_SIZE, seed);
+  static generate(seed = randomSeed(), name = 'Ville', difficulty: Difficulty = 'facile', kind: MapKind = 'coast'): City {
+    const { terrain, overlay, elev } = generateTerrain(MAP_SIZE, seed, kind);
     const city = new City(seed, terrain, overlay, elev);
     city.name = name;
     city.difficulty = difficulty;
@@ -257,7 +260,12 @@ export class City {
     if (st) {
       this.removeStruct(st);
       const n = STRUCTS[st.type].size;
-      for (let yy = st.y; yy < st.y + n; yy++) for (let xx = st.x; xx < st.x + n; xx++) this.overlay[this.idx(xx, yy)] = Overlay.Rubble;
+      for (let yy = st.y; yy < st.y + n; yy++) {
+        for (let xx = st.x; xx < st.x + n; xx++) {
+          const j = this.idx(xx, yy);
+          this.overlay[j] = this.terrain[j] === Terrain.Water ? Overlay.None : Overlay.Rubble;
+        }
+      }
       return;
     }
     const b = this.buildingAt(i);
@@ -578,11 +586,12 @@ export function emptyBudget(): Budget {
 }
 
 /** BFS distance to water, 4-neighbourhood, capped at `max` (max+1 = far). */
-function computeWaterDist(terrain: Uint8Array, size: number, max: number): Uint8Array {
+/** steps from each tile to the nearest tile of the given kind, capped at `max` (max + 1 beyond) */
+function computeDist(terrain: Uint8Array, size: number, max: number, from: Terrain): Uint8Array {
   const dist = new Uint8Array(size * size).fill(max + 1);
   let frontier: number[] = [];
   for (let i = 0; i < dist.length; i++) {
-    if (terrain[i] === Terrain.Water) { dist[i] = 0; frontier.push(i); }
+    if (terrain[i] === from) { dist[i] = 0; frontier.push(i); }
   }
   for (let d = 1; d <= max && frontier.length; d++) {
     const next: number[] = [];

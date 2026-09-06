@@ -85,8 +85,17 @@ function alpha(hex: string, a: number): string {
 
 // ---- ground ----------------------------------------------------------------
 
+function mix(a: string, b: string, t: number): string {
+  const ch = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+  const c = [0, 1, 2].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
 const GRASS = ['#6aa84f', '#68a64d', '#6cab52', '#66a34b'];
-const WATER = ['#3b78b5', '#3a74b0'];
+const DRY = ['#ad9f6a', '#ab9d68', '#b0a36e', '#a89a65'];
+/** grass by altitude level 0..4: lush lowlands blending into dry ground up top */
+const GRASS_BY_ALT = Array.from({ length: 5 }, (_, l) => GRASS.map((g, k) => mix(g, DRY[k], l / 4)));
+/** altitude level of the tile being drawn (0..4), set from the sprite key */
+let ALT = 0;
 
 function diamond(inset = 0, tx = 0, ty = 0, n = 1): Pt2[] {
   return [
@@ -110,9 +119,9 @@ function drawGroundFill(ctx: Ctx, c: string, tx = 0, ty = 0): void {
 }
 
 function drawGrass(ctx: Ctx, variant: number, tx = 0, ty = 0): void {
-  const c = GRASS[variant % GRASS.length];
+  const c = GRASS_BY_ALT[ALT][variant % GRASS.length];
   drawGroundFill(ctx, c, tx, ty);
-  ctx.fillStyle = shade(c, 0.86);
+  ctx.fillStyle = ALT >= 3 ? '#8a8577' : shade(c, 0.86);
   for (let k = 0; k < 5; k++) {
     const h = hash2(variant, k, 31);
     const u = 0.15 + ((h & 0xff) / 255) * 0.7;
@@ -122,9 +131,85 @@ function drawGrass(ctx: Ctx, variant: number, tx = 0, ty = 0): void {
   }
 }
 
-function drawWater(ctx: Ctx, variant: number, frame: number): void {
-  const c = WATER[variant % WATER.length];
-  poly(ctx, diamond(), c, c, 1);
+/** footprint polygon */
+function fpPoly(ctx: Ctx, pts: [number, number][], color: string): void {
+  poly(ctx, pts.map(([u, v]) => P(u, v)), color);
+}
+
+function fpCircle(cu: number, cv: number, rad: number): [number, number][] {
+  return Array.from({ length: 24 }, (_, k) => [cu + rad * Math.cos((k / 24) * 2 * Math.PI), cv + rad * Math.sin((k / 24) * 2 * Math.PI)]);
+}
+
+/** fills a footprint square, then carves a circle back out of it in the colour below: a rounded corner */
+function squareMinusCircle(ctx: Ctx, u0: number, v0: number, u1: number, v1: number, cu: number, cv: number, r: number, color: string, below: string): void {
+  fpPoly(ctx, [[u0, v0], [u1, v0], [u1, v1], [u0, v1]], color);
+  ctx.save();
+  ctx.beginPath();
+  for (const [k, [u, v]] of ([[u0, v0], [u1, v0], [u1, v1], [u0, v1]] as [number, number][]).entries()) {
+    const p = P(u, v);
+    if (k) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
+  }
+  ctx.closePath();
+  ctx.clip();
+  fpPoly(ctx, fpCircle(cu, cv, r), below);
+  ctx.restore();
+}
+
+/**
+ * One band of shore inside a water tile: a strip of width `w` along each land side, a fillet of
+ * radius `r` where two sides meet (the corner is filled, then the arc carved back in the colour
+ * below), and a rounded cap around a land tile that only touches a corner. Land tiles keep their
+ * full diamond, so what can be built on stays readable.
+ */
+function coastLayer(ctx: Ctx, mask: number, w: number, r: number, color: string, below: string): void {
+  const N = mask & 1, E = mask & 2, So = mask & 4, W = mask & 8;
+  if (N) fpPoly(ctx, [[0, 0], [1, 0], [1, w], [0, w]], color);
+  if (E) fpPoly(ctx, [[1 - w, 0], [1, 0], [1, 1], [1 - w, 1]], color);
+  if (So) fpPoly(ctx, [[0, 1 - w], [1, 1 - w], [1, 1], [0, 1]], color);
+  if (W) fpPoly(ctx, [[0, 0], [w, 0], [w, 1], [0, 1]], color);
+  const sides = (N ? 1 : 0) + (E ? 1 : 0) + (So ? 1 : 0) + (W ? 1 : 0);
+  if (sides === 2) {
+    if (N && E) squareMinusCircle(ctx, 1 - w - r, w, 1 - w, w + r, 1 - w - r, w + r, r, color, below);
+    if (E && So) squareMinusCircle(ctx, 1 - w - r, 1 - w - r, 1 - w, 1 - w, 1 - w - r, 1 - w - r, r, color, below);
+    if (So && W) squareMinusCircle(ctx, w, 1 - w - r, w + r, 1 - w, w + r, 1 - w - r, r, color, below);
+    if (W && N) squareMinusCircle(ctx, w, w, w + r, w + r, w + r, w + r, r, color, below);
+  }
+  if (mask & 16) fpPoly(ctx, fpCircle(1, 0, w), color);
+  if (mask & 32) fpPoly(ctx, fpCircle(1, 1, w), color);
+  if (mask & 64) fpPoly(ctx, fpCircle(0, 1, w), color);
+  if (mask & 128) fpPoly(ctx, fpCircle(0, 0, w), color);
+}
+
+const WATER_DEPTH = ['#3b78b5', '#3b78b5', '#356fab', '#2f66a1'];
+const SHALLOW = '#5a9fd0';
+const SAND = '#d9c98f';
+
+/**
+ * Water tile. `mask` = land around it (N=1 E=2 S=4 W=8, NE=16 SE=32 SW=64 NW=128, a diagonal only
+ * when both sides next to it are water); `depth` = steps from the shore (1..3), darker further out.
+ */
+function drawWater(ctx: Ctx, mask: number, depth: number, variant: number, frame: number): void {
+  const deep = WATER_DEPTH[Math.max(1, Math.min(3, depth))];
+  const c = variant % 2 ? shade(deep, 0.97) : deep;
+  const d = diamond();
+  // the outline seals hairline seams between water tiles; by the shore it would draw a blue line over the sand next door
+  poly(ctx, d, c, mask ? undefined : c, 1);
+  if (mask) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(d[0][0], d[0][1]);
+    for (let k = 1; k < 4; k++) ctx.lineTo(d[k][0], d[k][1]);
+    ctx.closePath();
+    ctx.clip();
+    // seal the seams from inside: the half of the stroke outside the diamond is clipped away
+    ctx.strokeStyle = c;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    coastLayer(ctx, mask, 0.3, 0.4, SHALLOW, c);
+    coastLayer(ctx, mask, 0.12, 0.3, SAND, SHALLOW);
+    ctx.restore();
+    return;
+  }
   ctx.strokeStyle = 'rgba(255,255,255,0.28)';
   ctx.lineWidth = 1;
   for (let k = 0; k < 3; k++) {
@@ -139,11 +224,12 @@ function drawWater(ctx: Ctx, variant: number, frame: number): void {
   }
 }
 
-function treeAt(ctx: Ctx, u: number, v: number, r: number, k: number): void {
+function treeAt(ctx: Ctx, u: number, v: number, r: number, k: number, species = 0): void {
   const [x, y] = P(u, v);
   ctx.fillStyle = '#5a3d1e';
   ctx.fillRect(x - 1, y - 4, 2, 5);
-  const g = k % 2 ? '#2f7a2f' : '#33863a';
+  // 0: deep green woods, 2: lighter mixed woods with the odd russet crown
+  const g = species === 2 ? (k % 4 === 1 ? '#c58f3c' : k % 2 ? '#5aa03a' : '#7db347') : k % 2 ? '#2f7a2f' : '#33863a';
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.arc(x, y - r - 2, r, 0, Math.PI * 2);
@@ -154,9 +240,24 @@ function treeAt(ctx: Ctx, u: number, v: number, r: number, k: number): void {
   ctx.fill();
 }
 
-function drawTrees(ctx: Ctx, variant: number): void {
+/** a conifer: trunk and two stacked cones, lit on the left */
+function coniferAt(ctx: Ctx, u: number, v: number, r: number, k: number): void {
+  const [x, y] = P(u, v);
+  ctx.fillStyle = '#4a3218';
+  ctx.fillRect(x - 1, y - 3, 2, 4);
+  const g = k % 2 ? '#2b6b33' : '#2f7438';
+  const H = r * 2.6;
+  for (const [y0, hh, ww] of [[y - 3, H * 0.6, r * 1.1], [y - 3 - H * 0.42, H * 0.58, r * 0.8]] as [number, number, number][]) {
+    poly(ctx, [[x, y0 - hh], [x + ww, y0], [x - ww, y0]], g);
+    poly(ctx, [[x, y0 - hh], [x, y0], [x - ww, y0]], shade(g, 1.2));
+  }
+}
+
+/** Two to four trees on grass; `species` 0 deep green, 1 conifers, 2 mixed light woods. Conifers take over up the hills. */
+function drawTrees(ctx: Ctx, variant: number, species = 0): void {
   drawGrass(ctx, variant);
-  const n = 2 + (variant % 2);
+  const kind = ALT >= 3 ? 1 : species;
+  const n = 2 + (variant % 3);
   const trees: { u: number; v: number; r: number; k: number }[] = [];
   for (let k = 0; k < n; k++) {
     const h = hash2(variant, k, 91);
@@ -168,7 +269,10 @@ function drawTrees(ctx: Ctx, variant: number): void {
     });
   }
   trees.sort((a, b) => a.u + a.v - (b.u + b.v));
-  for (const t of trees) treeAt(ctx, t.u, t.v, t.r, t.k);
+  for (const t of trees) {
+    if (kind === 1) coniferAt(ctx, t.u, t.v, t.r * 0.9, t.k);
+    else treeAt(ctx, t.u, t.v, t.r, t.k, kind);
+  }
 }
 
 /** mask bits: 1 = (x, y-1), 2 = (x+1, y), 4 = (x, y+1), 8 = (x-1, y) */
@@ -455,7 +559,7 @@ function drawHighwayBridge(ctx: Ctx, mask: number, ramp = 0, roadArms = 0): void
   const saved = SLOPE;
   const deck = bridgeSlope(ramp);
   SLOPE = [0, 0, 0, 0];
-  drawWater(ctx, mask & 1, 0);
+  drawWater(ctx, 0, 1, mask & 1, 0);
   const ph = pierHeight(deck);
   if (ph > 0) {
     const pier = new Scene(ctx, 0);
@@ -635,7 +739,7 @@ function drawBridge(ctx: Ctx, mask: number, ramp = 0): void {
   const saved = SLOPE;
   const deck = bridgeSlope(ramp);
   SLOPE = [0, 0, 0, 0];
-  drawWater(ctx, mask & 1, 0);
+  drawWater(ctx, 0, 1, mask & 1, 0);
   const ph = pierHeight(deck);
   if (ph > 0) {
     const pier = new Scene(ctx, 0);
@@ -890,14 +994,15 @@ class Scene {
   }
 
   /** Half-sphere sitting on a circle at height z0. */
-  dome(u: number, v: number, r: number, z0: number, color: string): void {
+  /** `rise` = height of the cap as a fraction of its screen half-width: 0.7 for a shallow cap, 1 for a hemisphere */
+  dome(u: number, v: number, r: number, z0: number, color: string, rise = 0.7): void {
     const ctx = this.ctx;
     this.elems.push({
       key: u + v + (z0 > 0 ? 10 : 0),
       draw: () => {
         const [cx, cy] = P(u, v, z0);
         const rx = r * TILE_W / 2, ry = r * TILE_H / 2;
-        const dh = rx * 0.7;
+        const dh = rx * rise;
         const g = ctx.createLinearGradient(cx - rx, 0, cx + rx, 0);
         g.addColorStop(0, shade(color, 0.75));
         g.addColorStop(0.35, shade(color, 1.1));
@@ -965,6 +1070,11 @@ class Scene {
   chimney(u: number, v: number, h: number, z0 = 0, w = 0.12, smoke = true): void {
     this.cylinder(u + w / 2, v + w / 2, w / 2, h - z0, '#5a5f66', '#2e2e2e', { z0 });
     if (smoke) currentEffects.push({ kind: 'smoke', u: u + w / 2, v: v + w / 2, z: h, color: '' });
+  }
+
+  /** steam or smoke rising from (u, v, z) while the building runs */
+  steam(u: number, v: number, z: number): void {
+    currentEffects.push({ kind: 'smoke', u, v, z, color: '' });
   }
 
   /** a small light the renderer blinks at (u, v, z) */
@@ -1700,13 +1810,19 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0, variant = 0, mask = 0
   if (type === 'station' && frame === 1) SWAP = true;
   const def = STRUCTS[type];
   const n = def.size;
-  for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) drawGrass(ctx, (tx * 3 + ty) & 3, tx, ty);
-  poly(ctx, diamond(0.04, 0, 0, n), STRUCT_LOT[def.category]);
+  // a turbine at sea stands on open water, on a pile
+  const offshore = type === 'wind' && variant === 1;
+  if (offshore) drawWater(ctx, 0, 2, 0, 0);
+  else {
+    for (let ty = 0; ty < n; ty++) for (let tx = 0; tx < n; tx++) drawGrass(ctx, (tx * 3 + ty) & 3, tx, ty);
+    poly(ctx, diamond(0.04, 0, 0, n), STRUCT_LOT[def.category]);
+  }
   const s = new Scene(ctx, hash2(n, type.length, 5));
   switch (type) {
     case 'wind':
       // tapered mast, nacelle, and a three-blade rotor drawn as tapered blades
-      s.disc(0.5, 0.5, 0.16, '#b9bec6', 0, -1);
+      if (offshore) s.cylinder(0.5, 0.5, 0.2, 3, '#e0b23a', '#d8dcdf');
+      else s.disc(0.5, 0.5, 0.16, '#b9bec6', 0, -1);
       s.cylinder(0.5, 0.5, 0.075, 40, '#e8ebee', '#d3d7dc', { rTop: 0.045 });
       s.box(0.45, 0.47, 0.58, 0.53, 4, '#cfd4da', '#e6e9ec', { z0: 40 });
       s.custom(60, (c) => {
@@ -1747,22 +1863,55 @@ function drawStruct(ctx: Ctx, type: StructType, frame = 0, variant = 0, mask = 0
       s.cylinder(2.55, 1.6, 0.32, 18, '#dfe3e7', '#f0f2f4');
       s.chimney(0.5, 2.3, 44, 0, 0.22);
       break;
-    case 'nuclear':
-      s.cylinder(1.1, 1.1, 0.7, 62, '#d7d9dc', '#4a5560', { rTop: 0.48 });
-      s.cylinder(2.9, 1.1, 0.7, 62, '#d7d9dc', '#4a5560', { rTop: 0.48 });
-      s.custom(100, (c) => {
-        c.fillStyle = 'rgba(255,255,255,0.6)';
-        for (const [u, v] of [[1.1, 1.1], [2.9, 1.1]]) {
-          const [x, y] = P(u, v, 64);
-          for (let k = 0; k < 3; k++) {
-            c.beginPath();
-            c.arc(x + k * 4, y - 6 - k * 7, 5 + k * 2, 0, Math.PI * 2);
-            c.fill();
-          }
+    case 'fusion':
+      // a glowing spherical containment two and a half tiles wide on a plinth, four radial injectors, two cryogenic
+      // towers, a glass hall in front. Depth order is set by hand: injectors behind the sphere first, those in front after the glow.
+      s.box(0.1, 0.1, 0.6, 0.7, 10, '#8a9299', '#6c7178', { windows: true });
+      s.cylinder(3.6, 0.5, 0.22, 40, '#e8ebee', '#d3d7dc');
+      s.cylinder(3.6, 1.05, 0.22, 40, '#e8ebee', '#d3d7dc');
+      s.box(1.7, 0.05, 2.2, 0.45, 9, '#8a9299', '#6c7178', { key: 0.5 });
+      s.box(0.05, 1.6, 0.55, 2.1, 9, '#8a9299', '#6c7178', { key: 0.5 });
+      s.cylinder(1.95, 1.85, 1.35, 6, '#3f4b5c', '#4f5d70');
+      s.cylinder(1.95, 1.85, 1.25, 8, '#5a6d8c', '#5a6d8c', { z0: 6 });
+      s.dome(1.95, 1.85, 1.25, 14, '#6b7f9e', 1);
+      s.custom(30, (c) => {
+        // the plasma glows through a window band around the sphere's equator: only the front arc shows
+        const [x, y] = P(1.95, 1.85, 30);
+        const rx = 1.146 * TILE_W / 2, ry = 1.146 * TILE_H / 2;
+        for (const [w, a] of [[8, 0.22], [3, 0.95]] as [number, number][]) {
+          c.strokeStyle = `rgba(111,214,255,${a})`;
+          c.lineWidth = w;
+          c.beginPath();
+          c.ellipse(x, y, rx, ry, 0, 0, Math.PI);
+          c.stroke();
         }
       });
-      s.box(1.0, 2.3, 3.0, 3.7, 20, '#c4c9ce', '#a8adb2', { windows: true });
-      s.dome(2.0, 3.0, 0.62, 20, '#e3e6e9');
+      s.beacon(1.95, 1.85, 56, '#4fc3ff');
+      s.box(3.35, 1.6, 3.85, 2.1, 9, '#8a9299', '#6c7178', { key: 35 });
+      s.box(1.7, 3.25, 2.2, 3.5, 9, '#8a9299', '#6c7178', { key: 35 });
+      s.box(0.2, 3.55, 3.8, 3.95, 14, '#9fb3c8', '#7f95ab', { windows: true, key: 50 });
+      break;
+    case 'nuclear':
+      // transformer yard at the back, containment dome two tiles wide on a plinth, hyperbolic cooling tower with live
+      // steam, vent stack, auxiliary block and turbine hall along the front. Front elements carry explicit keys, and the
+      // yard behind the dome low ones.
+      s.box(0.1, 0.1, 1.4, 0.6, 1.5, '#7d848c', '#9aa0a6', { key: 0.1 });
+      for (const u of [0.3, 0.7, 1.1]) s.box(u, 0.2, u + 0.22, 0.45, 6, '#6c7178', '#8a9299', { z0: 1.5, key: 0.2 });
+      s.cylinder(0.25, 0.52, 0.04, 24, '#9aa0a6', '#c0c5ca');
+      s.cylinder(1.3, 0.52, 0.04, 24, '#9aa0a6', '#c0c5ca');
+      s.cylinder(1.25, 1.9, 1.0, 4, '#a9aeb4', '#c2c6cb');
+      s.cylinder(1.25, 1.9, 0.9, 26, '#cfd3d8', '#b9bec4', { z0: 4 });
+      s.dome(1.25, 1.9, 0.9, 30, '#e3e6e9', 1);
+      s.beacon(1.25, 1.9, 60, '#ff3b30');
+      s.cylinder(3.0, 0.95, 0.9, 50, '#d8dbdf', '#c6cacf', { rTop: 0.58 });
+      s.cylinder(3.0, 0.95, 0.58, 16, '#dfe2e6', '#6f767e', { z0: 50, rTop: 0.68 });
+      s.cylinder(3.0, 0.95, 0.7, 2, '#f2f4f6', '#6f767e', { z0: 66 });
+      s.steam(3.0, 0.95, 68);
+      s.cylinder(0.3, 2.95, 0.09, 64, '#e8ebee', '#d3d7dc');
+      s.beacon(0.3, 2.95, 66, '#ff3b30');
+      s.box(2.3, 2.05, 3.8, 2.75, 12, '#aeb6c0', '#8e97a2', { windows: true, key: 45 });
+      s.box(0.5, 3.1, 3.85, 3.9, 16, '#c4c9ce', '#a8adb2', { windows: true, floors: true, key: 50 });
+      s.box(0.7, 3.3, 3.65, 3.7, 4, '#b3b8be', '#9ea3a9', { z0: 16, key: 51 });
       break;
     case 'pump':
       s.cylinder(0.5, 0.5, 0.26, 10, '#3d7fe0', '#2a5db0');
@@ -2362,6 +2511,7 @@ export class SpriteCache {
       N = 1;
       SWAP = false;
       SLOPE = [0, 0, 0, 0];
+      ALT = 0;
       this.cache.set(k, c);
     }
     return c;
@@ -2705,12 +2855,12 @@ function drawByKey(ctx: Ctx, key: string): void {
   const parts = key.split(':');
   const num = (i: number) => parseInt(parts[i], 10);
   switch (parts[0]) {
-    case 'grass': SLOPE = parseSlope(parts[1]); return drawGrass(ctx, num(2));
-    case 'water': return drawWater(ctx, num(1), num(2));
-    case 'tree': SLOPE = parseSlope(parts[1]); return drawTrees(ctx, num(2));
-    case 'road': SLOPE = parseSlope(parts[2]); return drawRoad(ctx, num(1));
+    case 'grass': SLOPE = parseSlope(parts[1]); ALT = parts[3] ? num(3) : 0; return drawGrass(ctx, num(2));
+    case 'water': return drawWater(ctx, num(1), num(2), num(3), num(4));
+    case 'tree': SLOPE = parseSlope(parts[1]); ALT = parts[3] ? num(3) : 0; return drawTrees(ctx, num(2), parts[4] ? num(4) : 0);
+    case 'road': SLOPE = parseSlope(parts[2]); ALT = parts[3] ? num(3) : 0; return drawRoad(ctx, num(1));
     case 'bridge': return drawBridge(ctx, num(1), parts[2] ? num(2) : 0);
-    case 'hwy': SLOPE = parseSlope(parts[2]); return drawHighway(ctx, num(1), parts[3] ? num(3) : 0);
+    case 'hwy': SLOPE = parseSlope(parts[2]); ALT = parts[4] ? num(4) : 0; return drawHighway(ctx, num(1), parts[3] ? num(3) : 0);
     case 'hwybridge': return drawHighwayBridge(ctx, num(1), parts[2] ? num(2) : 0, parts[3] ? num(3) : 0);
     case 'rail': SLOPE = parseSlope(parts[2]); return drawRail(ctx, num(1), parts[3]);
     case 'railover': SLOPE = parseSlope(parts[2]); return drawRailDeck(ctx, num(1));

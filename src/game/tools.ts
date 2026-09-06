@@ -44,7 +44,7 @@ export function planTool(city: City, tool: Tool, from: Pt, to: Pt): ToolPlan {
 
 function planTiles(city: City, tool: Tool, candidates: Pt[]): ToolPlan {
   const tiles: number[] = [];
-  let cost = 0;
+  const way = tool === 'rail' || tool === 'road' || tool === 'highway';
   let sloped = 0;
   let note: string | undefined;
   for (let k = 0; k < candidates.length; k++) {
@@ -55,10 +55,25 @@ function planTiles(city: City, tool: Tool, candidates: Pt[]): ToolPlan {
       if (ZONE_OF_TOOL[tool] !== undefined && city.terrain[i] === Terrain.Land && !city.isFlat(p.x, p.y)) sloped++;
       continue;
     }
-    if ((tool === 'rail' || tool === 'road' || tool === 'highway') && !crossingOk(city, tool, candidates, k)) { note = t('reason.crossing'); continue; }
+    if (way && !crossingOk(city, tool, candidates, k)) { note = t('reason.crossing'); continue; }
     tiles.push(i);
-    cost += tileCost(city, tool, i);
   }
+  if (way) {
+    // no junction on a bridge, counting only the tiles that survive: dropping one can free its neighbours
+    const keep = new Set(tiles);
+    for (let changed = true; changed;) {
+      changed = false;
+      for (const i of keep) {
+        if (bridgeArmsOk(city, tool, { x: i % city.size, y: Math.floor(i / city.size) }, keep)) continue;
+        keep.delete(i);
+        note = t('reason.bridgeJunction');
+        changed = true;
+      }
+    }
+    if (keep.size < tiles.length) tiles.splice(0, tiles.length, ...tiles.filter((i) => keep.has(i)));
+  }
+  let cost = 0;
+  for (const i of tiles) cost += tileCost(city, tool, i);
   const valid = tiles.length > 0;
   return { tool, tiles, cost, valid, note, reason: valid ? undefined : sloped ? FLAT_REASON() : note };
 }
@@ -88,7 +103,8 @@ function planStruct(city: City, tool: Tool & keyof typeof STRUCTS, at: Pt): Tool
       const i = city.idx(xx, yy);
       footprint.push(i);
       const o = city.overlay[i] as Overlay;
-      if (city.terrain[i] !== Terrain.Land || city.wire[i] || city.rail[i] || city.flood[i] || (o !== Overlay.None && o !== Overlay.Tree)) {
+      const ground = city.terrain[i] === Terrain.Land || (def.onWater && city.terrain[i] === Terrain.Water);
+      if (!ground || city.wire[i] || city.rail[i] || city.flood[i] || (o !== Overlay.None && o !== Overlay.Tree)) {
         valid = false;
         reason = reason ?? t('reason.occupied');
       } else if (!city.isFlat(xx, yy) || city.base(xx, yy) !== h) {
@@ -144,6 +160,23 @@ function crossingOk(city: City, tool: 'rail' | 'road' | 'highway', path: Pt[], k
   return wayX
     ? link(p.x, p.y - 1) && link(p.x, p.y + 1) && !link(p.x - 1, p.y) && !link(p.x + 1, p.y)
     : link(p.x - 1, p.y) && link(p.x + 1, p.y) && !link(p.x, p.y - 1) && !link(p.x, p.y + 1);
+}
+
+/**
+ * No junction on a bridge: a way over water keeps at most two arms, counting what is built
+ * and what the plan adds. Checked for the tile itself and for the water tiles it would join.
+ */
+function bridgeArmsOk(city: City, tool: Tool, p: Pt, planned: Set<number>): boolean {
+  const isWay = (x: number, y: number) => (tool === 'rail' ? city.hasRail(x, y) : city.isRoadway(x, y));
+  const linked = (x: number, y: number) => city.inBounds(x, y) && (isWay(x, y) || planned.has(y * city.size + x));
+  const water = (x: number, y: number) => city.inBounds(x, y) && city.terrain[city.idx(x, y)] === Terrain.Water;
+  const arms = (x: number, y: number) => (linked(x, y - 1) ? 1 : 0) + (linked(x + 1, y) ? 1 : 0) + (linked(x, y + 1) ? 1 : 0) + (linked(x - 1, y) ? 1 : 0);
+  if (water(p.x, p.y) && arms(p.x, p.y) > 2) return false;
+  for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+    const x = p.x + dx, y = p.y + dy;
+    if (water(x, y) && isWay(x, y) && arms(x, y) > 2) return false;
+  }
+  return true;
 }
 
 function tileCost(city: City, tool: Tool, i: number): number {

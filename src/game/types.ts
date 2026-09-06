@@ -1,4 +1,8 @@
 export const MAP_SIZE = 128;
+
+/** families of generated maps */
+export type MapKind = 'coast' | 'river' | 'lakes' | 'islands' | 'mountain';
+export const MAP_KINDS: MapKind[] = ['coast', 'river', 'lakes', 'islands', 'mountain'];
 export const TICKS_PER_MONTH = 25;
 
 export enum Terrain {
@@ -112,7 +116,7 @@ export type Dept = 'police' | 'fire' | 'education' | 'health';
 export const DEPTS: Dept[] = ['police', 'fire', 'education', 'health'];
 
 export type StructType =
-  | 'wind' | 'coal' | 'gas' | 'nuclear'
+  | 'wind' | 'coal' | 'gas' | 'nuclear' | 'fusion'
   | 'pump' | 'tower'
   | 'police' | 'fire' | 'school' | 'hospital'
   | 'park' | 'bigpark'

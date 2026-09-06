@@ -1,9 +1,9 @@
 import { generateTerrain } from '../game/terrain';
-import { MAP_SIZE, Overlay, Terrain } from '../game/types';
+import { MAP_SIZE, Overlay, Terrain, type MapKind } from '../game/types';
 
 /** Tiny isometric rendering of a map seed, for the welcome screen gallery. */
-export function renderPreview(canvas: HTMLCanvasElement, seed: number): void {
-  const { terrain, overlay, elev } = generateTerrain(MAP_SIZE, seed);
+export function renderPreview(canvas: HTMLCanvasElement, seed: number, kind: MapKind): void {
+  const { terrain, overlay, elev } = generateTerrain(MAP_SIZE, seed, kind);
   const S = MAP_SIZE, cs = S + 1;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d')!;

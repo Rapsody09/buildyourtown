@@ -3,6 +3,44 @@
 Format : une section par version, la plus récente en premier. Les entrées sont
 rédigées pour les joueurs, pas pour les développeurs.
 
+## 0.7.0 — 2026-09-06
+
+Des cartes plus belles et plus variées.
+
+- Cinq familles de cartes au choix à l'accueil : côte, rivière, lacs,
+  archipel, montagne. La rivière serpente d'un bord à l'autre avec un affluent ; il
+  faudra des ponts. L'archipel laisse moins de la moitié de la carte en
+  terre ferme.
+- Les rives sont adoucies : bande de sable et eau claire le long des berges,
+  angles arrondis dans les anses, caps adoucis. Tout se passe dans les cases
+  d'eau, une case de terre reste un losange entier : on voit où l'on peut
+  bâtir.
+- L'eau fonce en s'éloignant du rivage.
+- Le relief se lit : l'herbe passe du vert tendre en plaine au sol sec et
+  rocailleux sur les hauteurs.
+- Les forêts poussent en bosquets, plus denses près de l'eau, avec des
+  essences par massif : feuillus sombres, bois clairs mêlés de roux,
+  conifères qui prennent le dessus en altitude.
+- Une centrale de plus : la fusion, 6 000 MW propres à 100 000 habitants,
+  qui remplace quatre nucléaires. La centrale nucléaire est redessinée :
+  dôme de confinement, tour de refroidissement qui fume, salle des machines.
+- Les éoliennes se posent aussi en mer, où elles donnent 12 MW au lieu de 8.
+- Une centrale nucléaire proche de l'épicentre d'un séisme peut céder :
+  le bloc et ses abords sont dévastés et prennent feu. La fusion, elle, ne
+  craint rien.
+- Le palier de 20 000 habitants annonce enfin ses déblocages (aéroport,
+  nucléaire) dans le journal.
+- Vue à plat, touche V ou bouton de la mini-carte : immeubles et équipements
+  deviennent de simples emprises colorées au sol, plus foncées avec la
+  densité. Pratique pour passer le bulldozer sur des décombres coincés
+  derrière des tours.
+
+## 0.6.5 — 2026-09-06
+
+- Plus d'embranchement ni de carrefour sur un pont, routier comme
+  ferroviaire : deux ponts qui se touchaient formaient un carrefour sur
+  l'eau. Les ponts en courbe restent possibles.
+
 ## 0.6.4 — 2026-09-06
 
 Des ponts pour les trains.

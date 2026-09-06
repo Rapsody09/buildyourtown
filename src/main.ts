@@ -2,13 +2,13 @@ import './style.css';
 import { City } from './game/city';
 import { buildDemoCity, type DemoArea } from './game/demo';
 import { startDisaster } from './game/disasters';
-import { randomSeed } from './game/rng';
+import { hash2, randomSeed } from './game/rng';
 import { computeStats, issueBond, recomputeRoadDist, refreshGrid, repayBond, tick } from './game/sim';
 import { STRUCTS, isStructTool, structDesc, structName } from './game/structs';
 import { applyPlan, planTool, unitCost, type Pt, type ToolPlan } from './game/tools';
 import {
   DEPTS, HIGHWAY_CAPACITY, JOBS_C_PER_LEVEL, JOBS_I_PER_LEVEL, NO_ROAD, Overlay, POP_PER_LEVEL, ROAD_CAPACITY, TOOL_UNLOCK, Terrain, ZONE_COLOR, isZone,
-  type DataMap, type Difficulty, type DisasterKind, type LogEntry, type Tool,
+  MAP_KINDS, type DataMap, type Difficulty, type DisasterKind, type LogEntry, type MapKind, type Tool,
 } from './game/types';
 import { type Lang, fmtInt, fmtMoney, fmtParams, months, setLang, t } from './i18n';
 import { Renderer } from './render/renderer';
@@ -80,7 +80,10 @@ const hud = new Hud({
     unsaved = true;
   },
   onDataMap: setDataMap,
-  onNewCity: (name, difficulty, seed) => foundCity(name, difficulty, seed ?? randomSeed()),
+  onNewCity: (name, difficulty, seed, kind) => {
+    const s = seed ?? randomSeed();
+    foundCity(name, difficulty, s, kind ?? MAP_KINDS[(hash2(s, 3, 11) >>> 0) % MAP_KINDS.length]);
+  },
   onLoadCity: (key) => {
     const loaded = loadCity(key);
     if (!loaded) { hud.setStatus(t('status.unreadable'), true); return; }
@@ -99,6 +102,7 @@ const hud = new Hud({
   },
   onOrdinance: (key, enabled) => { city.ordinances[key] = enabled; unsaved = true; hud.update(city); },
   onMinimap: (x, y) => { renderer.centerOnTile(x, y); dirty = true; },
+  onFlat: () => setFlat(!renderer.flat),
   onRescue: () => {
     const back = currentKey ? loadRescue(currentKey) : null;
     if (!back || !currentKey) return;
@@ -153,9 +157,9 @@ function setDataMap(map: DataMap): void {
 
 const TUTO_SEEN_KEY = 'citybuilder.tutoSeen';
 
-function foundCity(name: string, difficulty: Difficulty, seed: number): void {
+function foundCity(name: string, difficulty: Difficulty, seed: number, kind: MapKind): void {
   autosave();
-  city = City.generate(seed, name, difficulty);
+  city = City.generate(seed, name, difficulty, kind);
   currentKey = newKey();
   setCurrentKey(currentKey);
   demoArea = null;
@@ -216,6 +220,13 @@ function announceLog(): void {
     const parts = [milestone, unlocked.length ? t('toast.unlocked', { names: unlocked.join(', ') }) : ''];
     hud.toast(parts.filter(Boolean).join(' '), 'good', { ms: 5000 });
   }
+}
+
+/** flat view: buildings as footprints, so a tile hidden behind tall blocks can be reached */
+function setFlat(on: boolean): void {
+  renderer.flat = on;
+  hud.setFlat(on);
+  dirty = true;
 }
 
 function clickPreview(p: Pt): void {
@@ -388,6 +399,7 @@ attachInput(canvas, renderer, {
     if (k === ' ') return false;
     if (k in TOOL_KEYS) { setTool(TOOL_KEYS[k]); return true; }
     if (k === 'p') { setSpeed(speed === 0 ? 1 : 0); return true; }
+    if (k === 'v') { setFlat(!renderer.flat); return true; }
     if (k === '1' || k === '2' || k === '3') { setSpeed(Number(k)); return true; }
     return false;
   },
@@ -481,6 +493,7 @@ function boot(): void {
       if (a) renderer.centerOnTile(a.x, a.y);
       else if (burning >= 0) renderer.centerOnTile(burning % city.size, Math.floor(burning / city.size));
     }
+    if (params.has('flat')) setFlat(true);
     if (params.get('panel') === 'budget') hud.openPanel('panel-budget');
     if (params.get('panel') === 'cities') hud.openPanel('panel-cities');
     if (params.get('panel') === 'journal') { hud.openPanel('panel-journal'); hud.update(city); }
@@ -509,6 +522,15 @@ function boot(): void {
 }
 
 boot();
+
+
+
+
+
+
+
+
+
 
 
 
